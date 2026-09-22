@@ -1,5 +1,6 @@
 import React from 'react';
 import { HeroVideo } from '../components/HeroVideo';
+import { BannerCarousel } from '../components/BannerCarousel';
 import { StoryCategoryBar } from '../components/StoryCategoryBar';
 import { NewArrivalsSection } from '../components/NewArrivalsSection';
 import { TopSellingSection } from '../components/TopSellingSection';
@@ -14,6 +15,9 @@ export const HomePage: React.FC = () => {
       
       {/* 1. EDITORIAL HERO VIDEO CAMPAIGN */}
       <HeroVideo />
+
+      {/* 1.5. DYNAMIC BANNER CAROUSEL */}
+      <BannerCarousel />
 
       {/* 2. SPOTLIGHT STORY / CATEGORY TICKER */}
       <StoryCategoryBar />

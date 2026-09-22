@@ -53,6 +53,11 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         } catch (jsonError) {
           console.error('Failed to parse auth response:', jsonError);
         }
+      } else if (response.status === 401) {
+        // 401 is expected when not authenticated - no error needed
+        console.log('Not authenticated - this is normal when not logged in');
+      } else {
+        console.error('Auth check failed with status:', response.status);
       }
     } catch (error) {
       console.error('Auth check failed:', error);

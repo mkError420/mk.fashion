@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ShopProvider } from './context/ShopContext';
 import { AdminProvider } from './context/AdminContext';
+import { AdminDataProvider } from './context/AdminDataContext';
+import { FrontendDataProvider } from './context/FrontendDataContext';
 import { ScrollToTop } from './components/ScrollToTop';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
@@ -115,12 +117,16 @@ function AppContent() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AdminProvider>
-        <ShopProvider>
-          <ScrollToTop />
-          <AppContent />
-        </ShopProvider>
-      </AdminProvider>
+      <FrontendDataProvider>
+        <AdminProvider>
+          <AdminDataProvider>
+            <ShopProvider>
+              <ScrollToTop />
+              <AppContent />
+            </ShopProvider>
+          </AdminDataProvider>
+        </AdminProvider>
+      </FrontendDataProvider>
     </BrowserRouter>
   );
 }

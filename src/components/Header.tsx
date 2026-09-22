@@ -157,6 +157,13 @@ export const Header: React.FC = () => {
               <span className="whitespace-nowrap">Track</span>
             </Link>
             <span className="hidden sm:inline text-neutral-700">|</span>
+            <Link 
+              to="/admin/login" 
+              className="inline-flex items-center text-neutral-400 hover:text-white transition-colors cursor-pointer underline-offset-2 hover:underline"
+            >
+              <span className="whitespace-nowrap">Admin</span>
+            </Link>
+            <span className="hidden sm:inline text-neutral-700">|</span>
             <div className="hidden sm:flex items-center text-neutral-300">
               <Phone className="w-3 h-3 mr-1 text-white" />
               <span>Hotline: <strong className="text-white">09613-258248</strong></span>

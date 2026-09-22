@@ -205,6 +205,11 @@ export const Footer: React.FC = () => {
                   Store Hours & Locations
                 </Link>
               </li>
+              <li className="pt-2 border-t border-neutral-800 mt-2">
+                <Link to="/admin/login" className="hover:text-white transition-colors text-neutral-500">
+                  Admin Login
+                </Link>
+              </li>
             </ul>
           </div>
 

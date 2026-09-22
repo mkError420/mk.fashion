@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '../context/AdminContext';
+import { BannerManagement } from '../components/admin/BannerManagement';
+import { CategoryManagement } from '../components/admin/CategoryManagement';
+import { PromocodeManagement } from '../components/admin/PromocodeManagement';
+import { SettingsManagement } from '../components/admin/SettingsManagement';
 
 interface DashboardStats {
   totalProducts: number;
@@ -22,12 +26,19 @@ interface Order {
 }
 
 export const AdminDashboardPage: React.FC<{}> = () => {
-  const { adminUser, logout } = useAdmin();
+  const { adminUser, logout, isAdmin, isLoading: authLoading } = useAdmin();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'products' | 'customers'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'products' | 'customers' | 'banners' | 'categories' | 'promocodes' | 'settings'>('overview');
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAdmin) {
+      navigate('/admin/login');
+    }
+  }, [isAdmin, authLoading, navigate]);
 
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://efashionbd.rf.gd/backend/api';
 
@@ -131,6 +142,39 @@ export const AdminDashboardPage: React.FC<{}> = () => {
             }`}
           >
             👥 Customers
+          </button>
+          <div className="border-t border-white/10 my-2"></div>
+          <button
+            onClick={() => setActiveTab('banners')}
+            className={`w-full text-left px-6 py-3 transition ${
+              activeTab === 'banners' ? 'bg-white/10 border-l-4 border-white' : 'hover:bg-white/5'
+            }`}
+          >
+            🖼️ Banners
+          </button>
+          <button
+            onClick={() => setActiveTab('categories')}
+            className={`w-full text-left px-6 py-3 transition ${
+              activeTab === 'categories' ? 'bg-white/10 border-l-4 border-white' : 'hover:bg-white/5'
+            }`}
+          >
+            📁 Categories
+          </button>
+          <button
+            onClick={() => setActiveTab('promocodes')}
+            className={`w-full text-left px-6 py-3 transition ${
+              activeTab === 'promocodes' ? 'bg-white/10 border-l-4 border-white' : 'hover:bg-white/5'
+            }`}
+          >
+            🎟️ Promocodes
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`w-full text-left px-6 py-3 transition ${
+              activeTab === 'settings' ? 'bg-white/10 border-l-4 border-white' : 'hover:bg-white/5'
+            }`}
+          >
+            ⚙️ Settings
           </button>
         </nav>
 
@@ -269,6 +313,14 @@ export const AdminDashboardPage: React.FC<{}> = () => {
             <p className="text-gray-600">Customer management will be implemented here.</p>
           </div>
         )}
+
+        {activeTab === 'banners' && <BannerManagement />}
+
+        {activeTab === 'categories' && <CategoryManagement />}
+
+        {activeTab === 'promocodes' && <PromocodeManagement />}
+
+        {activeTab === 'settings' && <SettingsManagement />}
       </div>
     </div>
   );

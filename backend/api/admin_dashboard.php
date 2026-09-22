@@ -7,7 +7,7 @@ session_start();
 // Check admin authentication
 if (!isset($_SESSION['is_admin']) || $_SESSION['is_admin'] !== true) {
     http_response_code(401);
-    echo json_encode(["message" => "Unauthorized"]);
+    echo json_encode(["message" => "Unauthorized", "authenticated" => false]);
     exit;
 }
 
@@ -50,6 +50,18 @@ function handleGetRequest($db, $action) {
         case 'customers':
             getCustomers($db);
             break;
+        case 'categories':
+            getCategories($db);
+            break;
+        case 'banners':
+            getBanners($db);
+            break;
+        case 'promocodes':
+            getPromocodes($db);
+            break;
+        case 'settings':
+            getSettings($db);
+            break;
         default:
             http_response_code(400);
             echo json_encode(["message" => "Invalid action"]);
@@ -64,6 +76,15 @@ function handlePostRequest($db, $action) {
             break;
         case 'category':
             createCategory($db);
+            break;
+        case 'banner':
+            createBanner($db);
+            break;
+        case 'promocode':
+            createPromocode($db);
+            break;
+        case 'setting':
+            createSetting($db);
             break;
         default:
             http_response_code(400);
@@ -80,6 +101,18 @@ function handlePutRequest($db, $action) {
         case 'order':
             updateOrder($db);
             break;
+        case 'category':
+            updateCategory($db);
+            break;
+        case 'banner':
+            updateBanner($db);
+            break;
+        case 'promocode':
+            updatePromocode($db);
+            break;
+        case 'setting':
+            updateSetting($db);
+            break;
         default:
             http_response_code(400);
             echo json_encode(["message" => "Invalid action"]);
@@ -91,6 +124,18 @@ function handleDeleteRequest($db, $action) {
     switch($action) {
         case 'product':
             deleteProduct($db);
+            break;
+        case 'category':
+            deleteCategory($db);
+            break;
+        case 'banner':
+            deleteBanner($db);
+            break;
+        case 'promocode':
+            deletePromocode($db);
+            break;
+        case 'setting':
+            deleteSetting($db);
             break;
         default:
             http_response_code(400);
@@ -343,6 +388,445 @@ function deleteProduct($db) {
         
         http_response_code(200);
         echo json_encode(["message" => "Product deleted successfully"]);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+// Category functions
+function getCategories($db) {
+    try {
+        $query = "SELECT c.*, (SELECT COUNT(*) FROM products WHERE category_id = c.id) as product_count, p.name as parent_name FROM categories c LEFT JOIN categories p ON c.parent_id = p.id ORDER BY c.parent_id IS NULL DESC, c.name ASC";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        http_response_code(200);
+        echo json_encode($categories);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+function createCategory($db) {
+    $data = json_decode(file_get_contents("php://input"));
+    
+    if (!isset($data->name)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Category name is required"]);
+        return;
+    }
+    
+    try {
+        $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $data->name)));
+        $query = "INSERT INTO categories (name, slug, description, parent_id) VALUES (:name, :slug, :description, :parent_id)";
+        
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':name', $data->name);
+        $stmt->bindParam(':slug', $slug);
+        $stmt->bindParam(':description', $data->description);
+        $stmt->bindParam(':parent_id', $data->parent_id);
+        $stmt->execute();
+        
+        http_response_code(201);
+        echo json_encode(["message" => "Category created successfully", "id" => $db->lastInsertId()]);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+function updateCategory($db) {
+    $data = json_decode(file_get_contents("php://input"));
+    
+    if (!isset($data->id)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Category ID is required"]);
+        return;
+    }
+    
+    try {
+        if (isset($data->name)) {
+            $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $data->name)));
+        } else {
+            $slug = $data->slug;
+        }
+        
+        $query = "UPDATE categories SET name = :name, slug = :slug, description = :description, parent_id = :parent_id WHERE id = :id";
+        
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':name', $data->name);
+        $stmt->bindParam(':slug', $slug);
+        $stmt->bindParam(':description', $data->description);
+        $stmt->bindParam(':parent_id', $data->parent_id);
+        $stmt->bindParam(':id', $data->id);
+        $stmt->execute();
+        
+        http_response_code(200);
+        echo json_encode(["message" => "Category updated successfully"]);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+function deleteCategory($db) {
+    $category_id = isset($_GET['id']) ? $_GET['id'] : null;
+    
+    if (!$category_id) {
+        http_response_code(400);
+        echo json_encode(["message" => "Category ID is required"]);
+        return;
+    }
+    
+    try {
+        $query = "SELECT COUNT(*) as count FROM products WHERE category_id = :id";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':id', $category_id);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result['count'] > 0) {
+            http_response_code(400);
+            echo json_encode(["message" => "Cannot delete category with existing products"]);
+            return;
+        }
+        
+        $query = "DELETE FROM categories WHERE id = :id";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':id', $category_id);
+        $stmt->execute();
+        
+        http_response_code(200);
+        echo json_encode(["message" => "Category deleted successfully"]);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+// Banner functions
+function getBanners($db) {
+    try {
+        $query = "SELECT * FROM banners ORDER BY position ASC, created_at DESC";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $banners = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        http_response_code(200);
+        echo json_encode($banners);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+function createBanner($db) {
+    $data = json_decode(file_get_contents("php://input"));
+    
+    if (!isset($data->title) || !isset($data->image_url)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Title and image URL are required"]);
+        return;
+    }
+    
+    try {
+        $query = "INSERT INTO banners (title, description, image_url, link_url, position, is_active, start_date, end_date) VALUES (:title, :description, :image_url, :link_url, :position, :is_active, :start_date, :end_date)";
+        
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':title', $data->title);
+        $stmt->bindParam(':description', $data->description);
+        $stmt->bindParam(':image_url', $data->image_url);
+        $stmt->bindParam(':link_url', $data->link_url);
+        $stmt->bindParam(':position', $data->position);
+        $stmt->bindParam(':is_active', $data->is_active);
+        $stmt->bindParam(':start_date', $data->start_date);
+        $stmt->bindParam(':end_date', $data->end_date);
+        $stmt->execute();
+        
+        http_response_code(201);
+        echo json_encode(["message" => "Banner created successfully", "id" => $db->lastInsertId()]);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+function updateBanner($db) {
+    $data = json_decode(file_get_contents("php://input"));
+    
+    if (!isset($data->id)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Banner ID is required"]);
+        return;
+    }
+    
+    try {
+        $query = "UPDATE banners SET title = :title, description = :description, image_url = :image_url, link_url = :link_url, position = :position, is_active = :is_active, start_date = :start_date, end_date = :end_date WHERE id = :id";
+        
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':title', $data->title);
+        $stmt->bindParam(':description', $data->description);
+        $stmt->bindParam(':image_url', $data->image_url);
+        $stmt->bindParam(':link_url', $data->link_url);
+        $stmt->bindParam(':position', $data->position);
+        $stmt->bindParam(':is_active', $data->is_active);
+        $stmt->bindParam(':start_date', $data->start_date);
+        $stmt->bindParam(':end_date', $data->end_date);
+        $stmt->bindParam(':id', $data->id);
+        $stmt->execute();
+        
+        http_response_code(200);
+        echo json_encode(["message" => "Banner updated successfully"]);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+function deleteBanner($db) {
+    $banner_id = isset($_GET['id']) ? $_GET['id'] : null;
+    
+    if (!$banner_id) {
+        http_response_code(400);
+        echo json_encode(["message" => "Banner ID is required"]);
+        return;
+    }
+    
+    try {
+        $query = "DELETE FROM banners WHERE id = :id";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':id', $banner_id);
+        $stmt->execute();
+        
+        http_response_code(200);
+        echo json_encode(["message" => "Banner deleted successfully"]);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+// Promocode functions
+function getPromocodes($db) {
+    try {
+        $query = "SELECT * FROM promocodes ORDER BY created_at DESC";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $promocodes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        http_response_code(200);
+        echo json_encode($promocodes);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+function createPromocode($db) {
+    $data = json_decode(file_get_contents("php://input"));
+    
+    if (!isset($data->code) || !isset($data->discount_type) || !isset($data->discount_value)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Code, discount type, and discount value are required"]);
+        return;
+    }
+    
+    try {
+        $applicableCategories = isset($data->applicable_categories) ? json_encode($data->applicable_categories) : null;
+        $query = "INSERT INTO promocodes (code, description, discount_type, discount_value, minimum_order_value, maximum_discount, usage_limit, is_active, start_date, end_date, applicable_categories) VALUES (:code, :description, :discount_type, :discount_value, :minimum_order_value, :maximum_discount, :usage_limit, :is_active, :start_date, :end_date, :applicable_categories)";
+        
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':code', $data->code);
+        $stmt->bindParam(':description', $data->description);
+        $stmt->bindParam(':discount_type', $data->discount_type);
+        $stmt->bindParam(':discount_value', $data->discount_value);
+        $stmt->bindParam(':minimum_order_value', $data->minimum_order_value);
+        $stmt->bindParam(':maximum_discount', $data->maximum_discount);
+        $stmt->bindParam(':usage_limit', $data->usage_limit);
+        $stmt->bindParam(':is_active', $data->is_active);
+        $stmt->bindParam(':start_date', $data->start_date);
+        $stmt->bindParam(':end_date', $data->end_date);
+        $stmt->bindParam(':applicable_categories', $applicableCategories);
+        $stmt->execute();
+        
+        http_response_code(201);
+        echo json_encode(["message" => "Promocode created successfully", "id" => $db->lastInsertId()]);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+function updatePromocode($db) {
+    $data = json_decode(file_get_contents("php://input"));
+    
+    if (!isset($data->id)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Promocode ID is required"]);
+        return;
+    }
+    
+    try {
+        $applicableCategories = isset($data->applicable_categories) ? json_encode($data->applicable_categories) : null;
+        $query = "UPDATE promocodes SET code = :code, description = :description, discount_type = :discount_type, discount_value = :discount_value, minimum_order_value = :minimum_order_value, maximum_discount = :maximum_discount, usage_limit = :usage_limit, is_active = :is_active, start_date = :start_date, end_date = :end_date, applicable_categories = :applicable_categories WHERE id = :id";
+        
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':code', $data->code);
+        $stmt->bindParam(':description', $data->description);
+        $stmt->bindParam(':discount_type', $data->discount_type);
+        $stmt->bindParam(':discount_value', $data->discount_value);
+        $stmt->bindParam(':minimum_order_value', $data->minimum_order_value);
+        $stmt->bindParam(':maximum_discount', $data->maximum_discount);
+        $stmt->bindParam(':usage_limit', $data->usage_limit);
+        $stmt->bindParam(':is_active', $data->is_active);
+        $stmt->bindParam(':start_date', $data->start_date);
+        $stmt->bindParam(':end_date', $data->end_date);
+        $stmt->bindParam(':applicable_categories', $applicableCategories);
+        $stmt->bindParam(':id', $data->id);
+        $stmt->execute();
+        
+        http_response_code(200);
+        echo json_encode(["message" => "Promocode updated successfully"]);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+function deletePromocode($db) {
+    $promocode_id = isset($_GET['id']) ? $_GET['id'] : null;
+    
+    if (!$promocode_id) {
+        http_response_code(400);
+        echo json_encode(["message" => "Promocode ID is required"]);
+        return;
+    }
+    
+    try {
+        $query = "DELETE FROM promocodes WHERE id = :id";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':id', $promocode_id);
+        $stmt->execute();
+        
+        http_response_code(200);
+        echo json_encode(["message" => "Promocode deleted successfully"]);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+// Settings functions
+function getSettings($db) {
+    try {
+        $category = isset($_GET['category']) ? $_GET['category'] : '';
+        
+        if ($category) {
+            $query = "SELECT * FROM settings WHERE category = :category ORDER BY setting_key ASC";
+            $stmt = $db->prepare($query);
+            $stmt->bindParam(':category', $category);
+        } else {
+            $query = "SELECT * FROM settings ORDER BY category ASC, setting_key ASC";
+            $stmt = $db->prepare($query);
+        }
+        
+        $stmt->execute();
+        $settings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $settingsObject = [];
+        foreach ($settings as $setting) {
+            $settingsObject[$setting['setting_key']] = [
+                'value' => $setting['setting_value'],
+                'type' => $setting['setting_type'],
+                'category' => $setting['category'],
+                'description' => $setting['description']
+            ];
+        }
+        
+        http_response_code(200);
+        echo json_encode($settingsObject);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+function createSetting($db) {
+    $data = json_decode(file_get_contents("php://input"));
+    
+    if (!isset($data->setting_key) || !isset($data->setting_value)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Setting key and value are required"]);
+        return;
+    }
+    
+    try {
+        $query = "INSERT INTO settings (setting_key, setting_value, setting_type, category, description) VALUES (:setting_key, :setting_value, :setting_type, :category, :description)";
+        
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':setting_key', $data->setting_key);
+        $stmt->bindParam(':setting_value', $data->setting_value);
+        $stmt->bindParam(':setting_type', $data->setting_type);
+        $stmt->bindParam(':category', $data->category);
+        $stmt->bindParam(':description', $data->description);
+        $stmt->execute();
+        
+        http_response_code(201);
+        echo json_encode(["message" => "Setting created successfully", "id" => $db->lastInsertId()]);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+function updateSetting($db) {
+    $data = json_decode(file_get_contents("php://input"));
+    
+    if (!isset($data->setting_key)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Setting key is required"]);
+        return;
+    }
+    
+    try {
+        $query = "UPDATE settings SET setting_value = :setting_value, setting_type = :setting_type, category = :category, description = :description WHERE setting_key = :setting_key";
+        
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':setting_key', $data->setting_key);
+        $stmt->bindParam(':setting_value', $data->setting_value);
+        $stmt->bindParam(':setting_type', $data->setting_type);
+        $stmt->bindParam(':category', $data->category);
+        $stmt->bindParam(':description', $data->description);
+        $stmt->execute();
+        
+        http_response_code(200);
+        echo json_encode(["message" => "Setting updated successfully"]);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+function deleteSetting($db) {
+    $setting_key = isset($_GET['key']) ? $_GET['key'] : null;
+    
+    if (!$setting_key) {
+        http_response_code(400);
+        echo json_encode(["message" => "Setting key is required"]);
+        return;
+    }
+    
+    try {
+        $query = "DELETE FROM settings WHERE setting_key = :setting_key";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':setting_key', $setting_key);
+        $stmt->execute();
+        
+        http_response_code(200);
+        echo json_encode(["message" => "Setting deleted successfully"]);
     } catch(PDOException $exception) {
         http_response_code(500);
         echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
