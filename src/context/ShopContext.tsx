@@ -11,6 +11,7 @@ import {
   getSessionId
 } from '../services/api';
 import { SAMPLE_TRACKING_CODES, generateMockTrackingForOrder } from '../data/mockCourierData';
+import { INITIAL_PRODUCTS } from '../data/products';
 
 interface Toast {
   id: string;
@@ -217,7 +218,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (error) {
         console.error('Failed to fetch products:', error);
         // Fallback to mock data if API fails
-        const { INITIAL_PRODUCTS } = await import('../data/products');
         setProducts(INITIAL_PRODUCTS);
         addToast('API Error', 'Using offline mode. Some features may be limited.', 'warning');
       } finally {

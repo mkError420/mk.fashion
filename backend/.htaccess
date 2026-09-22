@@ -1,3 +1,23 @@
+# Protect sensitive files
+<Files .env>
+  Order allow,deny
+  Deny from all
+</Files>
+
+<Files .env.production>
+  Order allow,deny
+  Deny from all
+</Files>
+
+<Files .env.local>
+  Order allow,deny
+  Deny from all
+</Files>
+
+# Prevent directory browsing
+Options -Indexes
+
+# Enable URL rewriting
 RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
