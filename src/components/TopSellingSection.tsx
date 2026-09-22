@@ -11,8 +11,9 @@ export const TopSellingSection: React.FC = () => {
 
   const currentYear = new Date().getFullYear();
 
-  // Get the top 8 selling / most popular products
+  // Get the top 8 selling / most popular products (filter out any undefined)
   const topSellingProducts = [...products]
+    .filter(Boolean)
     .sort((a, b) => {
       const salesA = a.salesCount ?? (a.reviewCount * 2.5);
       const salesB = b.salesCount ?? (b.reviewCount * 2.5);
@@ -82,7 +83,7 @@ export const TopSellingSection: React.FC = () => {
 
           const threeSmallCardsElement = (
             <div className="grid grid-rows-3 gap-4 h-[580px] w-full">
-              {cluster.small.map((prod) => (
+              {cluster.small.filter(Boolean).map((prod) => (
                 <div key={prod.id} className="h-full w-full min-h-0">
                   <HorizontalProductCard product={prod} />
                 </div>
@@ -112,7 +113,7 @@ export const TopSellingSection: React.FC = () => {
       {/* 2. MOBILE SCREEN LAYOUT (< MD): BALANCED 2-COLUMN GRID        */}
       {/* ============================================================ */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 md:hidden">
-        {topSellingProducts.map((product) => (
+        {topSellingProducts.filter(Boolean).map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
       </div>

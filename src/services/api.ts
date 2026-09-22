@@ -138,7 +138,13 @@ export const fetchProducts = async (params?: {
   if (params?.offset) queryParams.append('offset', params.offset.toString());
   
   const queryString = queryParams.toString();
-  return apiRequest<BackendProduct[]>(`/products.php${queryString ? `?${queryString}` : ''}`);
+  const result = await apiRequest<BackendProduct[] | unknown>(`/products.php${queryString ? `?${queryString}` : ''}`);
+  // Guard: API might return an error object instead of an array
+  if (!Array.isArray(result)) {
+    console.error('fetchProducts: expected array but got', result);
+    return [];
+  }
+  return result;
 };
 
 export const fetchProduct = async (id: number): Promise<BackendProduct> => {
@@ -224,12 +230,16 @@ export const fetchOrder = async (orderNumber: string): Promise<BackendOrder> => 
 
 // Helper function to convert backend product to frontend product
 export const convertBackendToFrontendProduct = (backendProduct: BackendProduct) => {
-  const images = backendProduct.images.length > 0 
-    ? backendProduct.images.map(img => img.image_url)
+  // Guard against null/undefined images and sizes returned by the API
+  const safeImages: BackendProductImage[] = Array.isArray(backendProduct.images) ? backendProduct.images : [];
+  const safeSizes: BackendProductSize[] = Array.isArray(backendProduct.sizes) ? backendProduct.sizes : [];
+
+  const images = safeImages.length > 0
+    ? safeImages.map(img => img.image_url)
     : (backendProduct.image_url ? [backendProduct.image_url] : ['/placeholder-product.jpg']);
   
-  const sizes = backendProduct.sizes.length > 0
-    ? backendProduct.sizes.map(s => s.size)
+  const sizes = safeSizes.length > 0
+    ? safeSizes.map(s => s.size)
     : ['Free Size'];
 
   return {

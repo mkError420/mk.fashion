@@ -1,11 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, CartItem, Order, CategoryType, SearchFilterState, CourierPartner, Coupon, OrderCustomer } from '../types';
-import { 
-  fetchProducts, 
-  fetchCart, 
-  addToCartApi, 
-  updateCartItemApi, 
-  deleteFromCartApi, 
+import { Product, CartItem, Order, SearchFilterState, CourierPartner, Coupon, OrderCustomer } from '../types';
+import {
+  fetchProducts,
+  addToCartApi,
+  updateCartItemApi,
+  deleteFromCartApi,
   createOrder,
   convertBackendToFrontendProduct,
   getSessionId
@@ -43,7 +42,7 @@ interface ShopContextType {
   appliedCoupon: Coupon | null;
   orderNote: string;
   isGiftPackaging: boolean;
-  
+
   // Modals & Drawers
   quickViewProduct: Product | null;
   quickCheckoutItem: { product: Product; size: string; color: string; quantity: number } | null;
@@ -61,7 +60,7 @@ interface ShopContextType {
   setFilters: React.Dispatch<React.SetStateAction<SearchFilterState>>;
   updateFilter: <K extends keyof SearchFilterState>(key: K, value: SearchFilterState[K]) => void;
   resetFilters: () => void;
-  
+
   addToCart: (product: Product, selectedSize?: string, selectedColor?: string, quantity?: number, openDrawer?: boolean) => void;
   removeFromCart: (cartItemId: string) => void;
   updateCartQuantity: (cartItemId: string, newQty: number) => void;
@@ -213,7 +212,13 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         setIsLoadingProducts(true);
         const backendProducts = await fetchProducts();
-        const frontendProducts = backendProducts.map(convertBackendToFrontendProduct);
+        // Guard: ensure the API returned an actual array of products
+        if (!Array.isArray(backendProducts) || backendProducts.length === 0) {
+          console.warn('No products from API, falling back to mock data');
+          setProducts(INITIAL_PRODUCTS);
+          return;
+        }
+        const frontendProducts = backendProducts.map(convertBackendToFrontendProduct) as Product[];
         setProducts(frontendProducts);
       } catch (error) {
         console.error('Failed to fetch products:', error);
@@ -288,9 +293,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addToCart = async (
-    product: Product, 
-    selectedSize?: string, 
-    selectedColor?: string, 
+    product: Product,
+    selectedSize?: string,
+    selectedColor?: string,
     quantity: number = 1,
     openDrawer: boolean = true
   ) => {
@@ -298,9 +303,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const color = selectedColor || product.colors[0]?.name || 'Standard';
 
     setCart(prev => {
-      const existingIndex = prev.findIndex(item => 
-        item.product.id === product.id && 
-        item.selectedSize === size && 
+      const existingIndex = prev.findIndex(item =>
+        item.product.id === product.id &&
+        item.selectedSize === size &&
         item.selectedColor === color
       );
 
@@ -330,7 +335,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     addToast('Added to Cart', `${product.name} (Size: ${size}) added to your bag.`);
-    
+
     if (openDrawer) {
       setIsCartOpen(true);
     }
@@ -338,7 +343,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const removeFromCart = async (cartItemId: string) => {
     setCart(prev => prev.filter(item => item.id !== cartItemId));
-    
+
     // Try to sync with backend (note: cartItemId format may differ from backend)
     try {
       const numericId = parseInt(cartItemId.split('-')[0]);
@@ -348,7 +353,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Failed to sync cart removal with backend:', error);
     }
-    
+
     addToast('Item Removed', 'Product removed from shopping bag.', 'info');
   };
 
@@ -358,7 +363,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     setCart(prev => prev.map(item => item.id === cartItemId ? { ...item, quantity: newQty } : item));
-    
+
     // Try to sync with backend
     try {
       const numericId = parseInt(cartItemId.split('-')[0]);
@@ -456,8 +461,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       fullName: string;
       phone: string;
       alternativePhone?: string;
+      email?: string;
       district: string;
       address: string;
+      postal_code?: string;
       notes?: string;
     },
     deliveryZone: 'Inside Dhaka' | 'Outside Dhaka' | 'Sub-Dhaka Express',
@@ -465,7 +472,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<Order> => {
     const activeItems = itemsToOrder && itemsToOrder.length > 0 ? itemsToOrder : cart;
     const subtotal = activeItems.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
-    
+
     // Free delivery over Tk 3,000 threshold (Blucheez Policy)
     const isFreeDelivery = subtotal >= 3000;
     const standardFee = deliveryZone === 'Inside Dhaka' ? 60 : deliveryZone === 'Sub-Dhaka Express' ? 100 : 120;
@@ -511,9 +518,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Create order number from backend response
       const orderId = backendOrder.order_number;
-      
+
       // Select courier partner based on destination
-      const couriers: CourierPartner[] = ['Steadfast Courier', 'Pathao Logistics', 'RedX Delivery', 'Paperfly'];
       const assignedCourier: CourierPartner = deliveryZone === 'Inside Dhaka' ? 'Pathao Logistics' : 'Steadfast Courier';
 
       const tracking = generateMockTrackingForOrder(orderId, assignedCourier, customer.district);
@@ -554,12 +560,11 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return newOrder;
     } catch (error) {
       console.error('Failed to create order via backend:', error);
-      
+
       // Fallback to local order creation
       const orderNumber = Math.floor(10000 + Math.random() * 90000);
       const orderId = `BC-${orderNumber}`;
 
-      const couriers: CourierPartner[] = ['Steadfast Courier', 'Pathao Logistics', 'RedX Delivery', 'Paperfly'];
       const assignedCourier: CourierPartner = deliveryZone === 'Inside Dhaka' ? 'Pathao Logistics' : 'Steadfast Courier';
 
       const tracking = generateMockTrackingForOrder(orderId, assignedCourier, customer.district);

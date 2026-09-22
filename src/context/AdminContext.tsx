@@ -39,19 +39,20 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         },
       });
       
+      // Always set default state first
+      setIsAdmin(false);
+      setAdminUser(null);
+      
       if (response.ok) {
-        const data = await response.json();
-        if (data.authenticated) {
-          setIsAdmin(true);
-          setAdminUser(data.admin);
-        } else {
-          setIsAdmin(false);
-          setAdminUser(null);
+        try {
+          const data = await response.json();
+          if (data && data.authenticated && data.admin) {
+            setIsAdmin(true);
+            setAdminUser(data.admin);
+          }
+        } catch (jsonError) {
+          console.error('Failed to parse auth response:', jsonError);
         }
-      } else {
-        // If 401 or other error, set as not authenticated
-        setIsAdmin(false);
-        setAdminUser(null);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
