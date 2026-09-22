@@ -113,6 +113,17 @@ CREATE TABLE IF NOT EXISTS cart (
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
+-- Admin users table
+CREATE TABLE IF NOT EXISTS admin_users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- Insert sample categories
 INSERT INTO categories (name, slug, description) VALUES
 ('New In', 'new-in', 'Latest arrivals and new collections'),
@@ -131,3 +142,8 @@ INSERT INTO products (name, slug, description, price, compare_price, sku, stock_
 ('Traditional Belwari', 'traditional-belwari', 'Authentic traditional Belwari attire', 3500.00, 4200.00, 'BEL001', 15, 4, TRUE),
 ('Designer Handbag', 'designer-handbag', 'Elegant designer handbag with multiple compartments', 2500.00, 3000.00, 'BAG001', 25, 6, FALSE),
 ('Premium Watch', 'premium-watch', 'Luxury watch with leather strap', 4500.00, 5500.00, 'WATCH001', 20, 7, TRUE);
+
+-- Insert admin user (password: sup123456123)
+-- Password hash generated using PHP password_hash('sup123456123', PASSWORD_DEFAULT)
+INSERT INTO admin_users (email, password, name, is_active) VALUES
+('mk.rabbani.cse@gmail.com', '$2y$12$eSZP1fxztJfWZY5mWH1ijul2u9qZlTx0LcxlMdqzcWSIglD/KgghO', 'Admin User', TRUE);

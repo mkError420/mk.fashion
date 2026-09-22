@@ -1,6 +1,7 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ShopProvider } from './context/ShopContext';
+import { AdminProvider } from './context/AdminContext';
 import { ScrollToTop } from './components/ScrollToTop';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
@@ -19,7 +20,6 @@ import { ToastContainer } from './components/ToastContainer';
 // Dedicated Functional Pages
 import { HomePage } from './pages/HomePage';
 import { ShopPage } from './pages/ShopPage';
-import { CollectionPage } from './pages/CollectionPage';
 import { ProductDetailPage } from './pages/ProductDetailPage';
 import { CartPage } from './pages/CartPage';
 import { CheckoutPage } from './pages/CheckoutPage';
@@ -30,66 +30,73 @@ import { OutletsPage } from './pages/OutletsPage';
 import { ExchangePolicyPage } from './pages/ExchangePolicyPage';
 import { AboutPage } from './pages/AboutPage';
 
-export default function App() {
+// Admin Pages
+import { AdminLoginPage } from './pages/AdminLoginPage';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
+
+function AppContent() {
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin');
+
   return (
-    <BrowserRouter>
-      <ShopProvider>
-        <ScrollToTop />
-        <div className="min-h-screen bg-white flex flex-col font-sans text-neutral-900 selection:bg-black selection:text-white pb-16 md:pb-0 w-full max-w-full overflow-x-hidden">
-          {/* Universal Sticky Header */}
-          <Header />
+    <div className="min-h-screen bg-white flex flex-col font-sans text-neutral-900 selection:bg-black selection:text-white pb-16 md:pb-0 w-full max-w-full overflow-x-hidden">
+      {!isAdminRoute && <Header />}
 
-          {/* Main Route Viewport */}
-          <main className="flex-1">
-            <Routes>
-              {/* Home Landing with Editorial showcase, highlights & categories */}
-              <Route path="/" element={<HomePage />} />
+      <main className={isAdminRoute ? "flex-1" : "flex-1"}>
+        <Routes>
+          {/* Admin Routes - Full page without Header/Footer */}
+          <Route path="/admin/login" element={<AdminLoginPage />} />
+          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
 
-              {/* Dedicated Shop Catalog with full Category & Subcategory Sidebar */}
-              <Route path="/shop" element={<ShopPage />} />
-              <Route path="/shop/:category" element={<ShopPage />} />
+          {/* Main App Routes - With Header/Footer */}
+          <Route path="/" element={<HomePage />} />
 
-              {/* Collections routes mapped to Shop with full sidebar capabilities */}
-              <Route path="/collections" element={<Navigate to="/shop" replace />} />
-              <Route path="/collections/:category" element={<ShopPage />} />
+          {/* Dedicated Shop Catalog with full Category & Subcategory Sidebar */}
+          <Route path="/shop" element={<ShopPage />} />
+          <Route path="/shop/:category" element={<ShopPage />} />
 
-              {/* Product Detail Page with variants, tabs, and gallery */}
-              <Route path="/product/:id" element={<ProductDetailPage />} />
+          {/* Collections routes mapped to Shop with full sidebar capabilities */}
+          <Route path="/collections" element={<Navigate to="/shop" replace />} />
+          <Route path="/collections/:category" element={<ShopPage />} />
 
-              {/* Full Shopping Cart & Bag */}
-              <Route path="/cart" element={<CartPage />} />
+          {/* Product Detail Page with variants, tabs, and gallery */}
+          <Route path="/product/:id" element={<ProductDetailPage />} />
 
-              {/* Full Direct COD Checkout */}
-              <Route path="/checkout" element={<CheckoutPage />} />
+          {/* Full Shopping Cart & Bag */}
+          <Route path="/cart" element={<CartPage />} />
 
-              {/* Order Confirmation & Printable Invoice */}
-              <Route path="/order-success" element={<OrderSuccessPage />} />
-              <Route path="/order-success/:orderId" element={<OrderSuccessPage />} />
+          {/* Full Direct COD Checkout */}
+          <Route path="/checkout" element={<CheckoutPage />} />
 
-              {/* Dedicated Courier Tracking with Timeline */}
-              <Route path="/track" element={<TrackOrderPage />} />
+          {/* Order Confirmation & Printable Invoice */}
+          <Route path="/order-success" element={<OrderSuccessPage />} />
+          <Route path="/order-success/:orderId" element={<OrderSuccessPage />} />
 
-              {/* Saved Wishlist Items */}
-              <Route path="/wishlist" element={<WishlistPage />} />
+          {/* Dedicated Courier Tracking with Timeline */}
+          <Route path="/track" element={<TrackOrderPage />} />
 
-              {/* Dhaka Retail Outlets & Flagship Centers */}
-              <Route path="/outlets" element={<OutletsPage />} />
+          {/* Saved Wishlist Items */}
+          <Route path="/wishlist" element={<WishlistPage />} />
 
-              {/* 7-Day Exchange & Return Policy */}
-              <Route path="/exchange-policy" element={<ExchangePolicyPage />} />
+          {/* Dhaka Retail Outlets & Flagship Centers */}
+          <Route path="/outlets" element={<OutletsPage />} />
 
-              {/* Atelier Brand Story & Heritage */}
-              <Route path="/about" element={<AboutPage />} />
+          {/* 7-Day Exchange & Return Policy */}
+          <Route path="/exchange-policy" element={<ExchangePolicyPage />} />
 
-              {/* Catch-all redirect to Home */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </main>
+          {/* Atelier Brand Story & Heritage */}
+          <Route path="/about" element={<AboutPage />} />
 
-          {/* Universal Footer */}
-          <Footer />
+          {/* Catch-all redirect to Home */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
 
-          {/* Interactive Modals & Slide-out Drawers */}
+      {!isAdminRoute && <Footer />}
+
+      {/* Interactive Modals & Slide-out Drawers - Only on non-admin routes */}
+      {!isAdminRoute && (
+        <>
           <ProductQuickViewModal />
           <QuickCheckoutModal />
           <CourierTrackingModal />
@@ -98,11 +105,22 @@ export default function App() {
           <OrderSuccessModal />
           <SizeGuideModal />
           <ToastContainer />
-
-          {/* Mobile Fixed Bottom Navigation */}
           <MobileBottomNav />
-        </div>
-      </ShopProvider>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AdminProvider>
+        <ShopProvider>
+          <ScrollToTop />
+          <AppContent />
+        </ShopProvider>
+      </AdminProvider>
     </BrowserRouter>
   );
 }
