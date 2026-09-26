@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 
 
-interface Category {
+export interface Category {
   id: number;
   name: string;
   slug: string;
@@ -10,6 +10,7 @@ interface Category {
   parent_id: number | null;
   product_count: number;
   parent_name: string;
+  show_in_navbar?: boolean | number;
 }
 
 interface Promocode {
@@ -49,6 +50,8 @@ interface AdminDataContextType {
   createCategory: (category: Partial<Category>) => Promise<boolean>;
   updateCategory: (id: number, category: Partial<Category>) => Promise<boolean>;
   deleteCategory: (id: number) => Promise<boolean>;
+  toggleCategoryNavbar: (id: number, show?: boolean) => Promise<boolean>;
+  setNavbarCategoriesBulk: (showIds: number[], hideIds: number[]) => Promise<boolean>;
   createPromocode: (promocode: Partial<Promocode>) => Promise<boolean>;
   updatePromocode: (id: number, promocode: Partial<Promocode>) => Promise<boolean>;
   deletePromocode: (id: number) => Promise<boolean>;
@@ -190,6 +193,44 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  const toggleCategoryNavbar = async (id: number, show?: boolean) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin_dashboard.php?action=toggle_category_navbar`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, show_in_navbar: show }),
+      });
+      if (response.ok) {
+        await loadCategories();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      setError('Failed to update category navbar visibility');
+      return false;
+    }
+  };
+
+  const setNavbarCategoriesBulk = async (showIds: number[], hideIds: number[]) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin_dashboard.php?action=set_navbar_categories`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ show_ids: showIds, hide_ids: hideIds }),
+      });
+      if (response.ok) {
+        await loadCategories();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      setError('Failed to update navbar categories');
+      return false;
+    }
+  };
+
   const createPromocode = async (promocode: Partial<Promocode>) => {
     try {
       const response = await fetch(`${API_BASE_URL}/admin_dashboard.php?action=promocode`, {
@@ -290,6 +331,8 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         createCategory,
         updateCategory,
         deleteCategory,
+        toggleCategoryNavbar,
+        setNavbarCategoriesBulk,
         createPromocode,
         updatePromocode,
         deletePromocode,

@@ -152,15 +152,26 @@ export const DEFAULT_UNIFIED_CATEGORIES: UnifiedCategory[] = [
 
 /**
  * Converts dynamic categories loaded from backend into a unified structure
- * used simultaneously by both Navbar and Shop Sidebar
+ * used simultaneously by both Navbar and Shop Sidebar.
+ * Only returns parent categories with show_in_navbar !== 0 for the Navbar.
+ * Pass navbarOnly=false to get all categories (e.g. for Shop sidebar).
  */
-export function buildUnifiedCategories(dynamicCategories?: FrontendCategory[]): UnifiedCategory[] {
+export function buildUnifiedCategories(dynamicCategories?: FrontendCategory[], navbarOnly = true): UnifiedCategory[] {
   if (!dynamicCategories || dynamicCategories.length === 0) {
     return DEFAULT_UNIFIED_CATEGORIES;
   }
 
   // Find parent categories (parent_id is null or 0)
-  const parents = dynamicCategories.filter(c => c.parent_id === null || c.parent_id === 0);
+  let parents = dynamicCategories.filter(c => c.parent_id === null || c.parent_id === 0);
+  if (parents.length === 0) {
+    return DEFAULT_UNIFIED_CATEGORIES;
+  }
+
+  // If building for navbar: filter out categories explicitly hidden (show_in_navbar === 0)
+  if (navbarOnly) {
+    parents = parents.filter(c => c.show_in_navbar !== 0 && c.show_in_navbar !== false);
+  }
+
   if (parents.length === 0) {
     return DEFAULT_UNIFIED_CATEGORIES;
   }

@@ -196,7 +196,7 @@ export const ShopPage: React.FC = () => {
 
   // Dynamically constructed categories from Database + Fallbacks via unified category utility
   const shopCategories: SidebarCategory[] = useMemo(() => {
-    const unified = buildUnifiedCategories(dynamicCategories);
+    const unified = buildUnifiedCategories(dynamicCategories, false);
     return [
       {
         id: 'all',

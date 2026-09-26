@@ -2,13 +2,15 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAdminData } from '../../context/AdminDataContext';
 import { 
   Plus, Edit2, Trash2, X, Check, FolderTree, Folder, CornerDownRight, 
-  RefreshCw, Search, Sparkles, Filter, AlertCircle, CheckCircle2, ChevronRight, Layers
+  RefreshCw, Search, Sparkles, Filter, AlertCircle, CheckCircle2, ChevronRight, Layers,
+  Eye, EyeOff, Navigation
 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://efashionbd.rf.gd/backend/api';
 
 export const CategoryManagement: React.FC = () => {
-  const { categories, loadCategories, createCategory, updateCategory, deleteCategory, isLoading } = useAdminData();
+  const { categories, loadCategories, createCategory, updateCategory, deleteCategory, toggleCategoryNavbar, isLoading } = useAdminData();
+  const [togglingNavbar, setTogglingNavbar] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const [selectedParentFilter, setSelectedParentFilter] = useState<string>('all');
@@ -170,6 +172,16 @@ export const CategoryManagement: React.FC = () => {
   }
 
   const totalSubcategories = categories.filter(c => c.parent_id !== null).length;
+  const navbarVisibleCount = categories.filter(c => c.parent_id === null && c.show_in_navbar !== 0 && c.show_in_navbar !== false).length;
+
+  const handleToggleNavbar = async (catId: number, currentValue: boolean | number | undefined) => {
+    // Flip the current value
+    const newShow = currentValue === 0 || currentValue === false ? true : false;
+    setTogglingNavbar(catId);
+    await toggleCategoryNavbar(catId, newShow);
+    await loadCategories();
+    setTogglingNavbar(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -240,11 +252,12 @@ export const CategoryManagement: React.FC = () => {
           <p className="text-xs text-gray-500 font-medium">Sub-Categories</p>
           <p className="text-xl font-bold text-amber-600 mt-1">{totalSubcategories}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200/80 p-4 shadow-sm">
-          <p className="text-xs text-gray-500 font-medium">Products Assigned</p>
-          <p className="text-xl font-bold text-emerald-600 mt-1">
-            {categories.reduce((acc, c) => acc + (c.product_count || 0), 0)}
-          </p>
+        <div className="bg-white rounded-xl border border-gray-200/80 p-4 shadow-sm flex items-start gap-3">
+          <div className="mt-0.5">
+            <p className="text-xs text-gray-500 font-medium">Shown in Navbar</p>
+            <p className="text-xl font-bold text-teal-600 mt-1">{navbarVisibleCount} / {parentCategories.length}</p>
+          </div>
+          <Navigation className="w-5 h-5 text-teal-500 ml-auto mt-0.5 shrink-0" />
         </div>
       </div>
 
@@ -443,6 +456,11 @@ export const CategoryManagement: React.FC = () => {
                 <th className="py-3.5 px-5">Type / Hierarchy</th>
                 <th className="py-3.5 px-5">Slug</th>
                 <th className="py-3.5 px-5">Products</th>
+                <th className="py-3.5 px-5 text-center">
+                  <span className="inline-flex items-center gap-1">
+                    <Navigation className="w-3.5 h-3.5" /> Navbar
+                  </span>
+                </th>
                 <th className="py-3.5 px-5 text-right">Actions</th>
               </tr>
             </thead>
@@ -516,6 +534,31 @@ export const CategoryManagement: React.FC = () => {
                       }`}>
                         {category.product_count || 0} products
                       </span>
+                    </td>
+
+                    {/* Navbar Visibility Toggle — only for parent (main) categories */}
+                    <td className="py-3.5 px-5 text-center">
+                      {isParent ? (
+                        <button
+                          type="button"
+                          disabled={togglingNavbar === category.id}
+                          onClick={() => handleToggleNavbar(category.id, category.show_in_navbar)}
+                          title={category.show_in_navbar === 0 || category.show_in_navbar === false ? 'Hidden from Navbar — click to show' : 'Visible in Navbar — click to hide'}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none ${
+                            togglingNavbar === category.id
+                              ? 'opacity-50 cursor-not-allowed bg-gray-300'
+                              : category.show_in_navbar === 0 || category.show_in_navbar === false
+                                ? 'bg-gray-300 hover:bg-gray-400'
+                                : 'bg-teal-500 hover:bg-teal-600'
+                          }`}
+                        >
+                          <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                            category.show_in_navbar === 0 || category.show_in_navbar === false ? 'translate-x-0.5' : 'translate-x-[18px]'
+                          }`} />
+                        </button>
+                      ) : (
+                        <span className="text-gray-300 text-xs">—</span>
+                      )}
                     </td>
 
                     {/* Actions */}

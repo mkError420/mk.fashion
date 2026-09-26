@@ -104,6 +104,12 @@ function handlePostRequest($db, $action) {
         case 'sync_categories':
             syncFrontendCategories($db);
             break;
+        case 'toggle_category_navbar':
+            toggleCategoryNavbar($db);
+            break;
+        case 'set_navbar_categories':
+            setNavbarCategoriesBulk($db);
+            break;
         default:
             http_response_code(400);
             echo json_encode(["message" => "Invalid action"]);
@@ -127,6 +133,12 @@ function handlePutRequest($db, $action) {
             break;
         case 'category':
             updateCategory($db);
+            break;
+        case 'toggle_category_navbar':
+            toggleCategoryNavbar($db);
+            break;
+        case 'set_navbar_categories':
+            setNavbarCategoriesBulk($db);
             break;
         case 'promocode':
             updatePromocode($db);
@@ -545,12 +557,35 @@ function deleteProduct($db) {
 }
 
 // Category functions
+function ensureCategoryNavbarColumn($db) {
+    static $done = false;
+    if ($done) return;
+    $done = true;
+    try {
+        $check = $db->query("SHOW COLUMNS FROM categories LIKE 'show_in_navbar'");
+        if ($check && $check->rowCount() === 0) {
+            $db->exec("ALTER TABLE categories ADD COLUMN show_in_navbar TINYINT(1) NOT NULL DEFAULT 1");
+        }
+    } catch(Exception $e) {
+        // ignore if already exists or restricted
+    }
+}
+
 function getCategories($db) {
     try {
+        ensureCategoryNavbarColumn($db);
         $query = "SELECT c.*, (SELECT COUNT(*) FROM products WHERE category_id = c.id) as product_count, p.name as parent_name FROM categories c LEFT JOIN categories p ON c.parent_id = p.id ORDER BY c.parent_id IS NULL DESC, c.name ASC";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($categories as &$cat) {
+            if (!isset($cat['show_in_navbar']) || $cat['show_in_navbar'] === null) {
+                $cat['show_in_navbar'] = 1;
+            } else {
+                $cat['show_in_navbar'] = (int)$cat['show_in_navbar'];
+            }
+        }
         
         http_response_code(200);
         echo json_encode($categories);
@@ -570,14 +605,18 @@ function createCategory($db) {
     }
     
     try {
+        ensureCategoryNavbarColumn($db);
         $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $data->name)));
-        $query = "INSERT INTO categories (name, slug, description, parent_id) VALUES (:name, :slug, :description, :parent_id)";
+        $show_in_navbar = isset($data->show_in_navbar) ? ($data->show_in_navbar ? 1 : 0) : 1;
+        
+        $query = "INSERT INTO categories (name, slug, description, parent_id, show_in_navbar) VALUES (:name, :slug, :description, :parent_id, :show_in_navbar)";
         
         $stmt = $db->prepare($query);
         $stmt->bindParam(':name', $data->name);
         $stmt->bindParam(':slug', $slug);
         $stmt->bindParam(':description', $data->description);
         $stmt->bindParam(':parent_id', $data->parent_id);
+        $stmt->bindParam(':show_in_navbar', $show_in_navbar, PDO::PARAM_INT);
         $stmt->execute();
         
         http_response_code(201);
@@ -598,24 +637,97 @@ function updateCategory($db) {
     }
     
     try {
+        ensureCategoryNavbarColumn($db);
         if (isset($data->name)) {
             $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $data->name)));
         } else {
             $slug = $data->slug;
         }
         
-        $query = "UPDATE categories SET name = :name, slug = :slug, description = :description, parent_id = :parent_id WHERE id = :id";
+        $show_in_navbar = isset($data->show_in_navbar) ? ($data->show_in_navbar ? 1 : 0) : 1;
+        
+        $query = "UPDATE categories SET name = :name, slug = :slug, description = :description, parent_id = :parent_id, show_in_navbar = :show_in_navbar WHERE id = :id";
         
         $stmt = $db->prepare($query);
         $stmt->bindParam(':name', $data->name);
         $stmt->bindParam(':slug', $slug);
         $stmt->bindParam(':description', $data->description);
         $stmt->bindParam(':parent_id', $data->parent_id);
-        $stmt->bindParam(':id', $data->id);
+        $stmt->bindParam(':show_in_navbar', $show_in_navbar, PDO::PARAM_INT);
+        $stmt->bindParam(':id', $data->id, PDO::PARAM_INT);
         $stmt->execute();
         
         http_response_code(200);
         echo json_encode(["message" => "Category updated successfully"]);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+function toggleCategoryNavbar($db) {
+    $data = json_decode(file_get_contents("php://input"));
+    $id = isset($data->id) ? (int)$data->id : (isset($_GET['id']) ? (int)$_GET['id'] : null);
+    $show = isset($data->show_in_navbar) ? ($data->show_in_navbar ? 1 : 0) : null;
+    
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(["message" => "Category ID is required"]);
+        return;
+    }
+    
+    try {
+        ensureCategoryNavbarColumn($db);
+        
+        if ($show === null) {
+            $query = "UPDATE categories SET show_in_navbar = IF(COALESCE(show_in_navbar, 1) = 1, 0, 1) WHERE id = :id";
+            $stmt = $db->prepare($query);
+            $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmt->execute();
+        } else {
+            $query = "UPDATE categories SET show_in_navbar = :show WHERE id = :id";
+            $stmt = $db->prepare($query);
+            $stmt->bindParam(':show', $show, PDO::PARAM_INT);
+            $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmt->execute();
+        }
+        
+        $stmt2 = $db->prepare("SELECT id, name, show_in_navbar FROM categories WHERE id = :id");
+        $stmt2->execute([':id' => $id]);
+        $updated = $stmt2->fetch(PDO::FETCH_ASSOC);
+        if ($updated) {
+            $updated['show_in_navbar'] = (int)$updated['show_in_navbar'];
+        }
+        
+        http_response_code(200);
+        echo json_encode([
+            "message" => "Navbar visibility updated successfully",
+            "category" => $updated
+        ]);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+function setNavbarCategoriesBulk($db) {
+    $data = json_decode(file_get_contents("php://input"));
+    
+    try {
+        ensureCategoryNavbarColumn($db);
+        
+        if (isset($data->show_ids) && is_array($data->show_ids) && count($data->show_ids) > 0) {
+            $inClause = implode(',', array_map('intval', $data->show_ids));
+            $db->exec("UPDATE categories SET show_in_navbar = 1 WHERE id IN ($inClause)");
+        }
+        
+        if (isset($data->hide_ids) && is_array($data->hide_ids) && count($data->hide_ids) > 0) {
+            $inClause = implode(',', array_map('intval', $data->hide_ids));
+            $db->exec("UPDATE categories SET show_in_navbar = 0 WHERE id IN ($inClause)");
+        }
+        
+        http_response_code(200);
+        echo json_encode(["message" => "Navbar categories updated successfully"]);
     } catch(PDOException $exception) {
         http_response_code(500);
         echo json_encode(["message" => "Database error: " . $exception->getMessage()]);

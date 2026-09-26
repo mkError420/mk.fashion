@@ -6,6 +6,9 @@ USE if0_42963205_efashionbd;
 -- Banners feature removed (Hero Video is used instead)
 DROP TABLE IF EXISTS banners;
 
+-- Categories navbar visibility column (1 = show in navbar, 0 = hide from navbar)
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS show_in_navbar TINYINT(1) NOT NULL DEFAULT 1;
+
 -- Promocodes table
 CREATE TABLE IF NOT EXISTS promocodes (
     id INT AUTO_INCREMENT PRIMARY KEY,

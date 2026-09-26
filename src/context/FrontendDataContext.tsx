@@ -19,6 +19,7 @@ export interface FrontendCategory {
   parent_id: number | null;
   parent_name?: string | null;
   parent_slug?: string | null;
+  show_in_navbar?: boolean | number;
 }
 
 interface FrontendDataContextType {
