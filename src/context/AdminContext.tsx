@@ -19,50 +19,70 @@ const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://efashionbd.rf.gd/backend/api';
 
-export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+const STORAGE_KEY = 'aristo_admin_session';
 
-  // Check authentication on mount
+function loadPersistedAdmin(): { isAdmin: boolean; adminUser: AdminUser | null } {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.isAdmin && parsed.adminUser) {
+        return { isAdmin: true, adminUser: parsed.adminUser };
+      }
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return { isAdmin: false, adminUser: null };
+}
+
+export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Restore from localStorage immediately so page reload shows dashboard not login
+  const persisted = loadPersistedAdmin();
+  const [isAdmin, setIsAdmin] = useState<boolean>(persisted.isAdmin);
+  const [adminUser, setAdminUser] = useState<AdminUser | null>(persisted.adminUser);
+  // Skip loading spinner if we already have persisted data
+  const [isLoading, setIsLoading] = useState<boolean>(!persisted.isAdmin);
+
+  // On mount, silently re-validate with the server in the background
   useEffect(() => {
     checkAuth();
   }, []);
+
+  const persistSession = (isAdminVal: boolean, user: AdminUser | null) => {
+    if (isAdminVal && user) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ isAdmin: true, adminUser: user }));
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  };
 
   const checkAuth = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/admin_login.php`, {
         method: 'GET',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
       });
-      
-      // Always set default state first
-      setIsAdmin(false);
-      setAdminUser(null);
-      
+
       if (response.ok) {
-        try {
-          const data = await response.json();
-          if (data && data.authenticated && data.admin) {
-            setIsAdmin(true);
-            setAdminUser(data.admin);
-          }
-        } catch (jsonError) {
-          console.error('Failed to parse auth response:', jsonError);
+        const data = await response.json();
+        if (data && data.authenticated && data.admin) {
+          setIsAdmin(true);
+          setAdminUser(data.admin);
+          persistSession(true, data.admin);
+        } else {
+          setIsAdmin(false);
+          setAdminUser(null);
+          persistSession(false, null);
         }
       } else if (response.status === 401) {
-        // 401 is expected when not authenticated - no error needed
-        console.log('Not authenticated - this is normal when not logged in');
-      } else {
-        console.error('Auth check failed with status:', response.status);
+        setIsAdmin(false);
+        setAdminUser(null);
+        persistSession(false, null);
       }
     } catch (error) {
-      console.error('Auth check failed:', error);
-      setIsAdmin(false);
-      setAdminUser(null);
+      console.warn('Auth check network error, keeping persisted session:', error);
     } finally {
       setIsLoading(false);
     }
@@ -72,18 +92,15 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const response = await fetch(`${API_BASE_URL}/admin_login.php`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
-
       const data = await response.json();
-
       if (response.ok) {
         setIsAdmin(true);
         setAdminUser(data.admin);
+        persistSession(true, data.admin);
         return { success: true, message: data.message };
       } else {
         return { success: false, message: data.message || 'Login failed' };
@@ -105,20 +122,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } finally {
       setIsAdmin(false);
       setAdminUser(null);
+      persistSession(false, null);
     }
   };
 
   return (
-    <AdminContext.Provider
-      value={{
-        isAdmin,
-        adminUser,
-        isLoading,
-        login,
-        logout,
-        checkAuth,
-      }}
-    >
+    <AdminContext.Provider value={{ isAdmin, adminUser, isLoading, login, logout, checkAuth }}>
       {children}
     </AdminContext.Provider>
   );
