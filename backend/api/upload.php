@@ -23,12 +23,43 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+// Helper to determine the uploads folder and public URL prefix
+function getUploadsLocation() {
+    $scriptDir = dirname(dirname($_SERVER['SCRIPT_NAME']));
+    $basePath = ($scriptDir === '/' || $scriptDir === '\\') ? '' : rtrim(str_replace('\\', '/', $scriptDir), '/');
+
+    // Check root uploads directory (e.g. /htdocs/uploads)
+    $rootUploads = dirname(dirname(__DIR__)) . '/uploads';
+    if (is_dir($rootUploads) || @mkdir($rootUploads, 0755, true)) {
+        return [
+            'dir' => $rootUploads,
+            'url_prefix' => '/uploads'
+        ];
+    }
+
+    // Fallback: inside backend/uploads
+    $backendUploads = dirname(__DIR__) . '/uploads';
+    if (!is_dir($backendUploads)) {
+        @mkdir($backendUploads, 0755, true);
+    }
+    return [
+        'dir' => $backendUploads,
+        'url_prefix' => $basePath . '/uploads'
+    ];
+}
+
+// Forward to upload_chunk.php if chunked upload parameters are present
+if (isset($_POST['upload_id']) && isset($_POST['chunk_index'])) {
+    require_once __DIR__ . '/upload_chunk.php';
+    exit;
+}
+
 // Detect POST overflow when post_max_size is exceeded
 if (empty($_FILES) && empty($_POST) && isset($_SERVER['CONTENT_LENGTH']) && (int)$_SERVER['CONTENT_LENGTH'] > 0) {
     http_response_code(413);
     echo json_encode([
         "success" => false, 
-        "message" => "Uploaded file payload is too large. The server limit is 50 MB."
+        "message" => "Uploaded file payload is too large for single upload. Please use chunked upload."
     ]);
     exit;
 }
@@ -43,7 +74,7 @@ $file = $_FILES['file'];
 
 if ($file['error'] !== UPLOAD_ERR_OK) {
     $errorMessages = [
-        UPLOAD_ERR_INI_SIZE   => "The uploaded file exceeds the server maximum allowed size (50 MB).",
+        UPLOAD_ERR_INI_SIZE   => "The uploaded file exceeds the server maximum allowed size. Use chunked upload for videos.",
         UPLOAD_ERR_FORM_SIZE  => "The uploaded file exceeds the HTML form limit.",
         UPLOAD_ERR_PARTIAL    => "The file was only partially uploaded. Please try again.",
         UPLOAD_ERR_NO_FILE    => "No file was uploaded.",
@@ -81,9 +112,8 @@ if ($file['size'] > $maxSize) {
 // Determine subfolder
 $subFolder = in_array($fileType, $allowedVideos) ? 'videos' : 'images';
 
-// Upload directory — two levels up from api/ puts us at backend/
-// We store files at backend/uploads/{images|videos}/
-$uploadDir = __DIR__ . '/../../uploads/' . $subFolder . '/';
+$location  = getUploadsLocation();
+$uploadDir = $location['dir'] . '/' . $subFolder . '/';
 
 if (!is_dir($uploadDir)) {
     mkdir($uploadDir, 0755, true);
@@ -102,7 +132,7 @@ if (!move_uploaded_file($file['tmp_name'], $destPath)) {
 // Build public URL
 $protocol  = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host      = $_SERVER['HTTP_HOST'];
-$publicUrl = $protocol . '://' . $host . '/uploads/' . $subFolder . '/' . $uniqueName;
+$publicUrl = $protocol . '://' . $host . $location['url_prefix'] . '/' . $subFolder . '/' . $uniqueName;
 
 http_response_code(200);
 echo json_encode([

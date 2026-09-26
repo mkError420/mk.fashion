@@ -48,15 +48,57 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState('');
   const [error, setError]         = useState('');
   const [success, setSuccess]     = useState(false);
   const [mode, setMode]           = useState<'upload' | 'url'>('upload');
+
+  /* ── helper: upload single chunk with XHR ─────────────────── */
+  const uploadChunkXhr = (
+    endpoint: string,
+    formData: FormData,
+    onProgress?: (loaded: number) => void
+  ): Promise<{ success: boolean; assembled?: boolean; url?: string; message?: string }> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', endpoint, true);
+      xhr.withCredentials = true;
+
+      if (onProgress) {
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            onProgress(e.loaded);
+          }
+        });
+      }
+
+      xhr.onload = () => {
+        try {
+          const json = JSON.parse(xhr.responseText);
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(json);
+          } else {
+            resolve({ success: false, message: json.message || `Server error (${xhr.status})` });
+          }
+        } catch {
+          resolve({ success: false, message: `Server error (${xhr.status})` });
+        }
+      };
+
+      xhr.onerror = () => reject(new Error('Network error during upload'));
+      xhr.ontimeout = () => reject(new Error('Upload chunk timed out'));
+      xhr.timeout = 90 * 1000; // 90s per chunk timeout
+
+      xhr.send(formData);
+    });
+  };
 
   /* ── upload logic ───────────────────────────────────────── */
   const uploadFile = useCallback(async (file: File) => {
     setError('');
     setSuccess(false);
     setUploadProgress(0);
+    setStatusMessage('');
 
     // Client-side file size guard (50 MB)
     if (file.size > MAX_FILE_SIZE) {
@@ -67,54 +109,143 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
 
     setUploading(true);
 
-    const formData = new FormData();
-    formData.append('file', file);
+    const isVideoFile = accept === 'video' || file.type.startsWith('video/') || /\.(mp4|webm|ogg|mov|m4v)$/i.test(file.name);
+    // Use chunked upload for all videos or any file > 1.5MB to bypass InfinityFree ~2MB limit
+    const useChunking = isVideoFile || file.size > 1.5 * 1024 * 1024;
 
     try {
-      // Use XMLHttpRequest so we can track upload progress for large videos
-      const result = await new Promise<{ success: boolean; url?: string; message?: string }>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${API_BASE_URL}/upload.php`, true);
-        xhr.withCredentials = true;
+      if (useChunking) {
+        // Chunked upload: 1MB chunks (100% safe for shared hosting 2MB limit)
+        const CHUNK_SIZE = 1024 * 1024;
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        const uploadId = 'up_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
 
-        // Track upload progress
-        xhr.upload.addEventListener('progress', (e) => {
-          if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            setUploadProgress(pct);
+        let finalUrl: string | null = null;
+        let cumulativeBytes = 0;
+
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, file.size);
+          const chunkBlob = file.slice(start, end);
+          const chunkSize = end - start;
+
+          setStatusMessage(`Uploading chunk ${i + 1} of ${totalChunks}…`);
+
+          const formData = new FormData();
+          formData.append('file', chunkBlob, file.name);
+          formData.append('upload_id', uploadId);
+          formData.append('chunk_index', String(i));
+          formData.append('total_chunks', String(totalChunks));
+          formData.append('original_name', file.name);
+          formData.append('file_size', String(file.size));
+
+          // Try upload_chunk.php first, fallback to upload.php if not deployed yet
+          const endpoints = [
+            `${API_BASE_URL}/upload_chunk.php`,
+            `${API_BASE_URL}/upload.php`
+          ];
+
+          let chunkSuccess = false;
+          let chunkResponse: any = null;
+          let lastErrorMessage = '';
+
+          for (const endpoint of endpoints) {
+            for (let attempt = 0; attempt < 2; attempt++) {
+              try {
+                chunkResponse = await uploadChunkXhr(endpoint, formData, (loaded) => {
+                  const currentTotal = cumulativeBytes + loaded;
+                  const pct = Math.min(99, Math.round((currentTotal / file.size) * 100));
+                  setUploadProgress(pct);
+                });
+
+                if (chunkResponse && chunkResponse.success) {
+                  chunkSuccess = true;
+                  break;
+                } else if (chunkResponse?.message) {
+                  lastErrorMessage = chunkResponse.message;
+                }
+              } catch (err: any) {
+                lastErrorMessage = err?.message || 'Connection lost';
+              }
+              // Wait briefly before retry
+              await new Promise((r) => setTimeout(r, 500));
+            }
+            if (chunkSuccess) break;
           }
+
+          if (!chunkSuccess) {
+            throw new Error(lastErrorMessage || `Failed to upload chunk ${i + 1} of ${totalChunks}`);
+          }
+
+          cumulativeBytes += chunkSize;
+          const pct = Math.min(99, Math.round((cumulativeBytes / file.size) * 100));
+          setUploadProgress(pct);
+
+          if (chunkResponse.assembled && chunkResponse.url) {
+            finalUrl = chunkResponse.url;
+          }
+        }
+
+        if (finalUrl) {
+          setUploadProgress(100);
+          setStatusMessage('Processing complete!');
+          onChange(finalUrl);
+          setSuccess(true);
+          setTimeout(() => setSuccess(false), 4000);
+        } else {
+          throw new Error('Upload completed but server did not return a public file URL.');
+        }
+      } else {
+        // Standard single upload for small files (<= 1.5MB)
+        setStatusMessage('Uploading…');
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const result = await new Promise<{ success: boolean; url?: string; message?: string }>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', `${API_BASE_URL}/upload.php`, true);
+          xhr.withCredentials = true;
+
+          xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+              const pct = Math.round((e.loaded / e.total) * 100);
+              setUploadProgress(pct);
+            }
+          });
+
+          xhr.onload = () => {
+            try {
+              const json = JSON.parse(xhr.responseText);
+              resolve(json);
+            } catch {
+              reject(new Error('Invalid server response'));
+            }
+          };
+
+          xhr.onerror = () => reject(new Error('Network error — check your connection'));
+          xhr.ontimeout = () => reject(new Error('Upload timed out. Check your connection.'));
+          xhr.timeout = 2 * 60 * 1000;
+
+          xhr.send(formData);
         });
 
-        xhr.onload = () => {
-          try {
-            const json = JSON.parse(xhr.responseText);
-            resolve(json);
-          } catch {
-            reject(new Error('Invalid server response'));
-          }
-        };
-
-        xhr.onerror = () => reject(new Error('Network error — check your connection'));
-        xhr.ontimeout = () => reject(new Error('Upload timed out. Try a smaller file or check your connection.'));
-        xhr.timeout = 5 * 60 * 1000; // 5 minute timeout for large files
-
-        xhr.send(formData);
-      });
-
-      if (result.success && result.url) {
-        onChange(result.url);
-        setSuccess(true);
-        setTimeout(() => setSuccess(false), 4000);
-      } else {
-        setError(result.message || 'Upload failed. Please try again.');
+        if (result.success && result.url) {
+          setUploadProgress(100);
+          onChange(result.url);
+          setSuccess(true);
+          setTimeout(() => setSuccess(false), 4000);
+        } else {
+          setError(result.message || 'Upload failed. Please try again.');
+        }
       }
     } catch (err: any) {
       setError(err?.message || 'Network error — check your connection');
     } finally {
       setUploading(false);
       setUploadProgress(0);
+      setStatusMessage('');
     }
-  }, [onChange]);
+  }, [accept, onChange]);
 
   /* ── drag & drop handlers ───────────────────────────────── */
   const onDragOver  = (e: React.DragEvent) => { e.preventDefault(); setDragging(true); };
@@ -195,7 +326,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
             <div className="flex flex-col items-center gap-3 p-5 w-full">
               <Loader2 className="w-7 h-7 text-gray-400 animate-spin" />
               <p className="text-sm text-gray-600 font-semibold">
-                Uploading{accept === 'video' ? ' video' : ''}…
+                {statusMessage || (accept === 'video' ? 'Uploading video…' : 'Uploading…')}
               </p>
               {/* Progress bar */}
               <div className="w-full max-w-xs bg-gray-100 rounded-full h-2">
@@ -204,10 +335,10 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
                   style={{ width: `${uploadProgress}%` }}
                 />
               </div>
-              <p className="text-xs text-gray-400">{uploadProgress}% uploaded</p>
+              <p className="text-xs text-gray-400">{uploadProgress}% completed</p>
               {accept === 'video' && (
                 <p className="text-[11px] text-gray-400 text-center">
-                  Large videos may take a moment. Please don't close this tab.
+                  Uploading video in safe chunks. Please keep this tab open.
                 </p>
               )}
             </div>

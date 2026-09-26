@@ -169,9 +169,9 @@ export const CheckoutPage: React.FC = () => {
       ? `${address.trim()}, Thana: ${effectiveThana}, ${district}`
       : `${address.trim()}, ${district}`;
 
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
-        const order = confirmOrder(
+        const order = await confirmOrder(
           {
             fullName: fullName.trim(),
             phone: phone.trim(),
