@@ -649,7 +649,7 @@ export const CheckoutPage: React.FC = () => {
             {/* RIGHT: Order Summary, Items Review, & Confirmation Button (5 cols on lg) */}
             <div className="lg:col-span-5 space-y-6">
               
-              <div className="bg-white border border-neutral-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-5 sticky top-24">
+              <div className="bg-white border border-neutral-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-5 sticky top-32">
                 
                 <div className="flex items-center justify-between border-b border-neutral-200 pb-3">
                   <h3 className="font-sans uppercase tracking-widest font-extrabold text-sm text-neutral-900">

@@ -3,20 +3,8 @@
 
 USE if0_42963205_efashionbd;
 
--- Banners table
-CREATE TABLE IF NOT EXISTS banners (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    image_url VARCHAR(500) NOT NULL,
-    link_url VARCHAR(500),
-    position INT DEFAULT 0,
-    is_active BOOLEAN DEFAULT TRUE,
-    start_date DATE,
-    end_date DATE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+-- Banners feature removed (Hero Video is used instead)
+DROP TABLE IF EXISTS banners;
 
 -- Promocodes table
 CREATE TABLE IF NOT EXISTS promocodes (
@@ -48,11 +36,6 @@ CREATE TABLE IF NOT EXISTS settings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Insert sample banners
-INSERT INTO banners (title, description, image_url, link_url, position, is_active) VALUES
-('Summer Collection 2026', 'Discover our latest summer collection with exclusive designs', 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=1200', '/shop/summer', 1, TRUE),
-('Blucheez Black Exclusive', 'Premium black collection for the modern gentleman', 'https://images.unsplash.com/photo-1507680434567-5739c80be1ac?w=1200', '/shop/blucheez-black', 2, TRUE),
-('Traditional Belwari', 'Authentic handloom Belwari sarees and attire', 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=1200', '/shop/belwari', 3, TRUE);
 
 -- Insert sample promocodes
 INSERT INTO promocodes (code, description, discount_type, discount_value, minimum_order_value, usage_limit, is_active, start_date, end_date) VALUES

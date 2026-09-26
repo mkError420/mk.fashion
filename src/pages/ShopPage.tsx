@@ -933,7 +933,7 @@ export const ShopPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* DESKTOP SIDEBAR (3 cols on lg) */}
-          <aside className="hidden lg:block lg:col-span-3 border-r border-neutral-200 pr-6 space-y-6 sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2 scrollbar-thin">
+          <aside className="hidden lg:block lg:col-span-3 border-r border-neutral-200 pr-6 space-y-6 sticky top-32 max-h-[calc(100vh-9rem)] overflow-y-auto pr-2 scrollbar-thin">
             {renderSidebarFilters()}
           </aside>
 

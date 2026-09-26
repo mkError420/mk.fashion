@@ -1,16 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-interface Banner {
-  id: number;
-  title: string;
-  description: string;
-  image_url: string;
-  link_url: string;
-  position: number;
-  is_active: boolean;
-  start_date: string;
-  end_date: string;
-}
+
 
 interface Category {
   id: number;
@@ -48,19 +38,14 @@ interface Setting {
 }
 
 interface AdminDataContextType {
-  banners: Banner[];
   categories: Category[];
   promocodes: Promocode[];
   settings: Setting;
   isLoading: boolean;
   error: string | null;
-  loadBanners: () => Promise<void>;
   loadCategories: () => Promise<void>;
   loadPromocodes: () => Promise<void>;
   loadSettings: () => Promise<void>;
-  createBanner: (banner: Partial<Banner>) => Promise<boolean>;
-  updateBanner: (id: number, banner: Partial<Banner>) => Promise<boolean>;
-  deleteBanner: (id: number) => Promise<boolean>;
   createCategory: (category: Partial<Category>) => Promise<boolean>;
   updateCategory: (id: number, category: Partial<Category>) => Promise<boolean>;
   deleteCategory: (id: number) => Promise<boolean>;
@@ -75,36 +60,11 @@ const AdminDataContext = createContext<AdminDataContextType | undefined>(undefin
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://efashionbd.rf.gd/backend/api';
 
 export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [banners, setBanners] = useState<Banner[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [promocodes, setPromocodes] = useState<Promocode[]>([]);
   const [settings, setSettings] = useState<Setting>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const loadBanners = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`${API_BASE_URL}/admin_dashboard.php?action=banners`, {
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setBanners(data);
-      } else if (response.status === 401) {
-        // Handle unauthorized - user needs to login
-        setError('Please login to access admin features');
-      } else {
-        setError('Failed to load banners');
-      }
-    } catch (err) {
-      setError('Network error loading banners');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const loadCategories = async () => {
     setIsLoading(true);
@@ -172,61 +132,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setError('Network error loading settings');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const createBanner = async (banner: Partial<Banner>) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/admin_dashboard.php?action=banner`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(banner),
-      });
-      if (response.ok) {
-        await loadBanners();
-        return true;
-      }
-      return false;
-    } catch (err) {
-      setError('Failed to create banner');
-      return false;
-    }
-  };
-
-  const updateBanner = async (id: number, banner: Partial<Banner>) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/admin_dashboard.php?action=banner`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...banner, id }),
-      });
-      if (response.ok) {
-        await loadBanners();
-        return true;
-      }
-      return false;
-    } catch (err) {
-      setError('Failed to update banner');
-      return false;
-    }
-  };
-
-  const deleteBanner = async (id: number) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/admin_dashboard.php?action=banner&id=${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      if (response.ok) {
-        await loadBanners();
-        return true;
-      }
-      return false;
-    } catch (err) {
-      setError('Failed to delete banner');
-      return false;
     }
   };
 
@@ -374,19 +279,14 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   return (
     <AdminDataContext.Provider
       value={{
-        banners,
         categories,
         promocodes,
         settings,
         isLoading,
         error,
-        loadBanners,
         loadCategories,
         loadPromocodes,
         loadSettings,
-        createBanner,
-        updateBanner,
-        deleteBanner,
         createCategory,
         updateCategory,
         deleteCategory,

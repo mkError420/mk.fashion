@@ -1,16 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-interface Banner {
-  id: number;
-  title: string;
-  description: string;
-  image_url: string;
-  link_url: string;
-  position: number;
-  is_active: boolean;
-  start_date: string;
-  end_date: string;
-}
 
 interface FrontendSettings {
   [key: string]: string;
@@ -33,7 +22,6 @@ export interface FrontendCategory {
 }
 
 interface FrontendDataContextType {
-  banners: Banner[];
   settings: FrontendSettings;
   deliveryFees: DeliveryFees;
   categories: FrontendCategory[];
@@ -43,7 +31,6 @@ interface FrontendDataContextType {
   whatsappNumber: string;
   announcementText: string;
   isLoading: boolean;
-  loadBanners: () => Promise<void>;
   loadSettings: () => Promise<void>;
   loadCategories: () => Promise<void>;
   validatePromocode: (code: string, orderTotal: number) => Promise<any>;
@@ -54,7 +41,6 @@ const FrontendDataContext = createContext<FrontendDataContextType | undefined>(u
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://efashionbd.rf.gd/backend/api';
 
 export const FrontendDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [banners, setBanners] = useState<Banner[]>([]);
   const [settings, setSettings] = useState<FrontendSettings>({});
   const [categories, setCategories] = useState<FrontendCategory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -71,22 +57,6 @@ export const FrontendDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const whatsappNumber = settings['whatsapp_number'] || '01700000000';
   const announcementText = settings['announcement_text'] || `Cash on Delivery Available Nationwide • 100% Cotton`;
 
-  const loadBanners = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/banners.php`, {
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setBanners(data);
-      }
-    } catch (err) {
-      console.error('Failed to load banners:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const loadSettings = async () => {
     setIsLoading(true);
@@ -153,7 +123,6 @@ export const FrontendDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   useEffect(() => {
-    loadBanners();
     loadSettings();
     loadCategories();
   }, []);
@@ -161,7 +130,6 @@ export const FrontendDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
   return (
     <FrontendDataContext.Provider
       value={{
-        banners,
         settings,
         deliveryFees,
         categories,
@@ -171,7 +139,6 @@ export const FrontendDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
         whatsappNumber,
         announcementText,
         isLoading,
-        loadBanners,
         loadSettings,
         loadCategories,
         validatePromocode,

@@ -41,7 +41,7 @@ function AppContent() {
   const isAdminRoute = location.pathname.startsWith('/admin');
 
   return (
-    <div className="min-h-screen bg-white flex flex-col font-sans text-neutral-900 selection:bg-black selection:text-white pb-16 md:pb-0 w-full max-w-full overflow-x-hidden">
+    <div className="min-h-screen bg-white flex flex-col font-sans text-neutral-900 selection:bg-black selection:text-white pb-16 md:pb-0 w-full max-w-full overflow-x-clip">
       {!isAdminRoute && <Header />}
 
       <main className={isAdminRoute ? "flex-1" : "flex-1"}>
