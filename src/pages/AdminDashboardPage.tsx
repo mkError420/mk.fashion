@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '../context/AdminContext';
 import { HeroVideoManagement } from '../components/admin/HeroVideoManagement';
+import { FestiveManagement } from '../components/admin/FestiveManagement';
 import { CategoryManagement } from '../components/admin/CategoryManagement';
 import { PromocodeManagement } from '../components/admin/PromocodeManagement';
 import { SettingsManagement } from '../components/admin/SettingsManagement';
@@ -12,10 +13,10 @@ import {
   LayoutDashboard, ShoppingBag, Package, Users, Video, FolderOpen,
   Tag, Settings, LogOut, Menu, X, TrendingUp, TrendingDown, Clock,
   CheckCircle2, Truck, XCircle, AlertTriangle, ArrowUpRight, ExternalLink,
-  RefreshCw, BarChart2, Star
+  RefreshCw, BarChart2, Star, Sparkles
 } from 'lucide-react';
 
-type TabType = 'overview' | 'orders' | 'products' | 'customers' | 'hero-video' | 'categories' | 'promocodes' | 'settings';
+type TabType = 'overview' | 'orders' | 'products' | 'customers' | 'hero-video' | 'festive' | 'categories' | 'promocodes' | 'settings';
 
 interface DashboardStats {
   totalProducts: number;
@@ -40,8 +41,9 @@ const NAV_ITEMS: { id: TabType; label: string; icon: React.ReactNode; badge?: st
   { id: 'orders',     label: 'Orders',      icon: <ShoppingBag className="w-5 h-5" /> },
   { id: 'products',   label: 'Products',    icon: <Package className="w-5 h-5" /> },
   { id: 'customers',  label: 'Customers',   icon: <Users className="w-5 h-5" /> },
-  { id: 'hero-video', label: 'Hero Video',  icon: <Video className="w-5 h-5" />, badge: 'Home' },
-  { id: 'categories', label: 'Categories',  icon: <FolderOpen className="w-5 h-5" /> },
+  { id: 'hero-video', label: 'Hero Video',      icon: <Video className="w-5 h-5" />, badge: 'Home' },
+  { id: 'festive',    label: 'Festive Section', icon: <Sparkles className="w-5 h-5 text-amber-500" />, badge: 'Home' },
+  { id: 'categories', label: 'Categories',      icon: <FolderOpen className="w-5 h-5" /> },
   { id: 'promocodes', label: 'Promocodes',  icon: <Tag className="w-5 h-5" /> },
   { id: 'settings',   label: 'Settings',    icon: <Settings className="w-5 h-5" /> },
 ];
@@ -442,6 +444,7 @@ export const AdminDashboardPage: React.FC = () => {
           {activeTab === 'products'   && <ProductsManagement />}
           {activeTab === 'customers'  && <CustomersManagement />}
           {activeTab === 'hero-video' && <HeroVideoManagement />}
+          {activeTab === 'festive'    && <FestiveManagement />}
           {activeTab === 'categories' && <CategoryManagement />}
           {activeTab === 'promocodes' && <PromocodeManagement />}
           {activeTab === 'settings'   && <SettingsManagement />}
