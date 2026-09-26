@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '../context/AdminContext';
 import { BannerManagement } from '../components/admin/BannerManagement';
+import { HeroVideoManagement } from '../components/admin/HeroVideoManagement';
 import { CategoryManagement } from '../components/admin/CategoryManagement';
 import { PromocodeManagement } from '../components/admin/PromocodeManagement';
 import { SettingsManagement } from '../components/admin/SettingsManagement';
@@ -9,13 +10,13 @@ import { OrdersManagement } from '../components/admin/OrdersManagement';
 import { ProductsManagement } from '../components/admin/ProductsManagement';
 import { CustomersManagement } from '../components/admin/CustomersManagement';
 import {
-  LayoutDashboard, ShoppingBag, Package, Users, Image, FolderOpen,
+  LayoutDashboard, ShoppingBag, Package, Users, Image, Video, FolderOpen,
   Tag, Settings, LogOut, Menu, X, TrendingUp, TrendingDown, Clock,
   CheckCircle2, Truck, XCircle, AlertTriangle, ArrowUpRight, ExternalLink,
   RefreshCw, BarChart2, Star
 } from 'lucide-react';
 
-type TabType = 'overview' | 'orders' | 'products' | 'customers' | 'banners' | 'categories' | 'promocodes' | 'settings';
+type TabType = 'overview' | 'orders' | 'products' | 'customers' | 'hero-video' | 'banners' | 'categories' | 'promocodes' | 'settings';
 
 interface DashboardStats {
   totalProducts: number;
@@ -40,6 +41,7 @@ const NAV_ITEMS: { id: TabType; label: string; icon: React.ReactNode; badge?: st
   { id: 'orders',     label: 'Orders',      icon: <ShoppingBag className="w-5 h-5" /> },
   { id: 'products',   label: 'Products',    icon: <Package className="w-5 h-5" /> },
   { id: 'customers',  label: 'Customers',   icon: <Users className="w-5 h-5" /> },
+  { id: 'hero-video', label: 'Hero Video',  icon: <Video className="w-5 h-5" />, badge: 'Home' },
   { id: 'banners',    label: 'Banners',     icon: <Image className="w-5 h-5" /> },
   { id: 'categories', label: 'Categories',  icon: <FolderOpen className="w-5 h-5" /> },
   { id: 'promocodes', label: 'Promocodes',  icon: <Tag className="w-5 h-5" /> },
@@ -441,7 +443,8 @@ export const AdminDashboardPage: React.FC = () => {
           {activeTab === 'orders'     && <OrdersManagement />}
           {activeTab === 'products'   && <ProductsManagement />}
           {activeTab === 'customers'  && <CustomersManagement />}
-          {activeTab === 'banners'    && <BannerManagement />}
+          {activeTab === 'hero-video' && <HeroVideoManagement />}
+          {activeTab === 'banners'    && <BannerManagement onNavigateToHeroVideo={() => handleTabChange('hero-video')} />}
           {activeTab === 'categories' && <CategoryManagement />}
           {activeTab === 'promocodes' && <PromocodeManagement />}
           {activeTab === 'settings'   && <SettingsManagement />}

@@ -76,4 +76,17 @@ INSERT INTO settings (setting_key, setting_value, setting_type, category, descri
 ('announcement_text', 'Cash on Delivery Available Nationwide • 100% Cotton • Fast Delivery', 'text', 'general', 'Top announcement bar text'),
 ('social_facebook', 'https://facebook.com/blucheez', 'text', 'social', 'Facebook page URL'),
 ('social_instagram', 'https://instagram.com/blucheez', 'text', 'social', 'Instagram page URL'),
-('social_youtube', 'https://youtube.com/blucheez', 'text', 'social', 'YouTube channel URL');
+('social_youtube', 'https://youtube.com/blucheez', 'text', 'social', 'YouTube channel URL'),
+('hero_video_url', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4', 'text', 'hero_video', 'Primary MP4 video URL displayed in the homepage hero banner'),
+('hero_video_fallback_url', 'https://assets.mixkit.co/videos/preview/mixkit-fashion-model-in-a-studio-setting-39875-large.mp4', 'text', 'hero_video', 'Fallback MP4 video URL if primary source fails'),
+('hero_video_poster', 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=2400&q=85', 'text', 'hero_video', 'Poster image URL shown while video loads'),
+('hero_video_badge', 'FESTIVE EDITORIAL 2026', 'text', 'hero_video', 'Optional top badge or seasonal tag'),
+('hero_video_title', 'THE ART OF DEMI-COUTURE', 'text', 'hero_video', 'Hero overlay headline'),
+('hero_video_subtitle', 'Handcrafted Heritage • Luxury Fabrics • Modern Silhouette', 'text', 'hero_video', 'Hero overlay subtitle / description'),
+('hero_video_button_text', 'EXPLORE COLLECTION', 'text', 'hero_video', 'Call to action button text'),
+('hero_video_button_link', '/shop', 'text', 'hero_video', 'Destination URL when CTA button is clicked'),
+('hero_video_overlay_darkness', '20', 'text', 'hero_video', 'Dark tint overlay percentage (0, 20, 40, 60)'),
+('hero_video_autoplay', '1', 'boolean', 'hero_video', 'Whether video autoplays on load'),
+('hero_video_loop', '1', 'boolean', 'hero_video', 'Whether video loops continuously'),
+('hero_video_muted', '1', 'boolean', 'hero_video', 'Whether video starts muted'),
+('hero_video_enabled', '1', 'boolean', 'hero_video', 'Toggle Homepage Hero Video banner on or off');

@@ -999,7 +999,13 @@ function updateSetting($db) {
     }
     
     try {
-        $query = "UPDATE settings SET setting_value = :setting_value, setting_type = :setting_type, category = :category, description = :description WHERE setting_key = :setting_key";
+        $checkStmt = $db->prepare("SELECT id FROM settings WHERE setting_key = :setting_key");
+        $checkStmt->execute([':setting_key' => $data->setting_key]);
+        if ($checkStmt->rowCount() > 0) {
+            $query = "UPDATE settings SET setting_value = :setting_value, setting_type = :setting_type, category = :category, description = :description WHERE setting_key = :setting_key";
+        } else {
+            $query = "INSERT INTO settings (setting_key, setting_value, setting_type, category, description) VALUES (:setting_key, :setting_value, :setting_type, :category, :description)";
+        }
         
         $stmt = $db->prepare($query);
         $stmt->bindParam(':setting_key', $data->setting_key);

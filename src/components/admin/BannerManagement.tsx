@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAdminData } from '../../context/AdminDataContext';
-import { Plus, Edit2, Trash2, X, Check, Image as ImageIcon, ExternalLink, Calendar } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Check, Image as ImageIcon, ExternalLink, Calendar, Video, ArrowRight } from 'lucide-react';
 
-export const BannerManagement: React.FC = () => {
+interface BannerManagementProps {
+  onNavigateToHeroVideo?: () => void;
+}
+
+export const BannerManagement: React.FC<BannerManagementProps> = ({ onNavigateToHeroVideo }) => {
   const { banners, loadBanners, createBanner, updateBanner, deleteBanner, isLoading } = useAdminData();
   const [isEditing, setIsEditing] = useState(false);
   const [editingBanner, setEditingBanner] = useState<any>(null);
@@ -101,6 +105,29 @@ export const BannerManagement: React.FC = () => {
           </button>
         )}
       </div>
+
+      {/* Hero Video Section Shortcut Callout */}
+      {onNavigateToHeroVideo && (
+        <div className="bg-gradient-to-r from-gray-950 via-gray-900 to-neutral-900 text-white rounded-2xl p-5 shadow-sm border border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="p-2.5 bg-white/10 rounded-xl text-white shrink-0">
+              <Video className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-white">Homepage Full-Bleed Hero Video</h4>
+              <p className="text-xs text-gray-400 mt-0.5">Looking to update the background video streams, headlines, and audio settings?</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onNavigateToHeroVideo}
+            className="inline-flex items-center gap-1.5 bg-white text-gray-950 font-bold px-4 py-2 rounded-xl text-xs hover:bg-gray-100 transition shrink-0 cursor-pointer self-start sm:self-auto"
+          >
+            <span>Manage Hero Video</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {isEditing && (
         <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6 sm:p-8 animate-fadeIn">
