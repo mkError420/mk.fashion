@@ -1,0 +1,6 @@
+Options -Indexes
+# Serve uploaded files directly; block PHP execution inside uploads/
+<FilesMatch "\.php$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>

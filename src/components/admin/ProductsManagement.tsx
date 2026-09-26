@@ -4,6 +4,7 @@ import {
   ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Star, AlertTriangle, ChevronDown
 } from 'lucide-react';
 import { useAdminData } from '../../context/AdminDataContext';
+import { MediaUpload } from './MediaUpload';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://efashionbd.rf.gd/backend/api';
 
@@ -488,18 +489,14 @@ export const ProductsManagement: React.FC = () => {
                 )}
               </div>
 
-              {/* Image URL */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Image URL</label>
-                <input type="url" value={formData.image_url}
-                  onChange={e => setFormData({ ...formData, image_url: e.target.value })}
-                  className={inputCls} placeholder="https://…/product.jpg" />
-                {formData.image_url && (
-                  <img src={formData.image_url} alt="preview"
-                    className="mt-2 h-24 rounded-xl object-cover border border-gray-100"
-                    onError={e => (e.currentTarget.style.display = 'none')} />
-                )}
-              </div>
+              {/* Product Image */}
+              <MediaUpload
+                label="Product Image"
+                accept="image"
+                value={formData.image_url}
+                onChange={url => setFormData({ ...formData, image_url: url })}
+                placeholder="https://…/product.jpg"
+              />
 
               {/* Description */}
               <div>

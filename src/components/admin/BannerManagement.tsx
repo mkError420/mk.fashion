@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAdminData } from '../../context/AdminDataContext';
 import { Plus, Edit2, Trash2, X, Check, Image as ImageIcon, ExternalLink, Calendar, Video, ArrowRight } from 'lucide-react';
+import { MediaUpload } from './MediaUpload';
 
 interface BannerManagementProps {
   onNavigateToHeroVideo?: () => void;
@@ -191,49 +192,15 @@ export const BannerManagement: React.FC<BannerManagementProps> = ({ onNavigateTo
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Image URL *
-                </label>
-                <input
-                  type="url"
+                <MediaUpload
+                  label="BANNER IMAGE"
+                  accept="image"
                   value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full px-3.5 py-2.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white text-sm transition"
+                  onChange={url => setFormData({ ...formData, image_url: url })}
+                  placeholder="https://images.unsplash.com/…"
                   required
                 />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Redirect Link URL
-                </label>
-                <input
-                  type="text"
-                  value={formData.link_url}
-                  onChange={(e) => setFormData({ ...formData, link_url: e.target.value })}
-                  placeholder="/shop/summer or https://..."
-                  className="w-full px-3.5 py-2.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white text-sm transition"
-                />
-              </div>
-            </div>
-
-            {formData.image_url && (
-              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200/60">
-                <span className="text-xs font-medium text-gray-500 block mb-2">Live Image Preview:</span>
-                <div className="h-36 w-full rounded-lg overflow-hidden bg-gray-200 relative">
-                  <img 
-                    src={formData.image_url} 
-                    alt="Preview" 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://via.placeholder.com/800x300?text=Invalid+Image+URL';
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-gray-500" /> Start Date

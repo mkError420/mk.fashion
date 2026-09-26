@@ -18,6 +18,7 @@ import {
   Type, 
   Eye
 } from 'lucide-react';
+import { MediaUpload } from './MediaUpload';
 
 export interface HeroVideoConfig {
   videoUrl: string;
@@ -589,54 +590,39 @@ export const HeroVideoManagement: React.FC = () => {
             <h4 className="font-bold text-gray-900 text-sm">Video Source Files & Links</h4>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-              Primary Video URL (MP4 / WebM direct stream) *
-            </label>
-            <input
-              type="url"
-              value={config.videoUrl}
-              onChange={(e) => setConfig({ ...config, videoUrl: e.target.value })}
-              placeholder="https://your-domain.com/video.mp4"
-              className="w-full px-3.5 py-2.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white text-sm font-mono transition"
-              required
-            />
-            <p className="text-[11px] text-gray-400 mt-1">
-              Supports any direct MP4 / WebM video link (Google Cloud Storage, Mixkit, Cloudinary, AWS S3, or InfinityFree backend).
-            </p>
-          </div>
+          <MediaUpload
+            label="PRIMARY VIDEO URL (MP4 / WebM) *"
+            accept="video"
+            value={config.videoUrl}
+            onChange={url => setConfig({ ...config, videoUrl: url })}
+            placeholder="https://your-domain.com/video.mp4"
+            required
+          />
+          <p className="text-[11px] text-gray-400 -mt-1">
+            Supports direct MP4 / WebM links or upload from your device.
+          </p>
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-              Secondary Fallback Video URL
-            </label>
-            <input
-              type="url"
-              value={config.fallbackUrl}
-              onChange={(e) => setConfig({ ...config, fallbackUrl: e.target.value })}
-              placeholder="https://assets.mixkit.co/videos/preview/..."
-              className="w-full px-3.5 py-2.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white text-sm font-mono transition"
-            />
-            <p className="text-[11px] text-gray-400 mt-1">
-              Used automatically if the user's browser fails to decode or load the primary video stream.
-            </p>
-          </div>
+          <MediaUpload
+            label="SECONDARY FALLBACK VIDEO URL"
+            accept="video"
+            value={config.fallbackUrl}
+            onChange={url => setConfig({ ...config, fallbackUrl: url })}
+            placeholder="https://assets.mixkit.co/videos/…"
+          />
+          <p className="text-[11px] text-gray-400 -mt-1">
+            Used if the primary video fails to load.
+          </p>
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-              Poster / Cover Image URL
-            </label>
-            <input
-              type="url"
-              value={config.posterUrl}
-              onChange={(e) => setConfig({ ...config, posterUrl: e.target.value })}
-              placeholder="https://images.unsplash.com/..."
-              className="w-full px-3.5 py-2.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white text-sm font-mono transition"
-            />
-            <p className="text-[11px] text-gray-400 mt-1">
-              Displays instantly while the video is buffering or on mobile low-data connections.
-            </p>
-          </div>
+          <MediaUpload
+            label="POSTER / COVER IMAGE"
+            accept="image"
+            value={config.posterUrl}
+            onChange={url => setConfig({ ...config, posterUrl: url })}
+            placeholder="https://images.unsplash.com/…"
+          />
+          <p className="text-[11px] text-gray-400 -mt-1">
+            Shown while the video is buffering or on mobile low-data connections.
+          </p>
 
           {/* Behavior Toggles */}
           <div className="pt-3 border-t border-gray-100 space-y-3">
