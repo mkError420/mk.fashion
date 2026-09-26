@@ -47,6 +47,15 @@ function handleGetRequest($db, $action) {
         case 'products':
             getProducts($db);
             break;
+        case 'product_details':
+            getProductDetailsAdmin($db);
+            break;
+        case 'product_images':
+            getProductImagesAdmin($db);
+            break;
+        case 'product_variants':
+            getProductVariantsAdmin($db);
+            break;
         case 'customers':
             getCustomers($db);
             break;
@@ -73,6 +82,18 @@ function handlePostRequest($db, $action) {
     switch($action) {
         case 'product':
             createProduct($db);
+            break;
+        case 'product_image':
+            createProductImageAdmin($db);
+            break;
+        case 'product_images_bulk':
+            saveProductImagesBulkAdmin($db);
+            break;
+        case 'product_variant':
+            createProductVariantAdmin($db);
+            break;
+        case 'product_variants_bulk':
+            saveProductVariantsBulkAdmin($db);
             break;
         case 'category':
             createCategory($db);
@@ -101,6 +122,12 @@ function handlePutRequest($db, $action) {
         case 'product':
             updateProduct($db);
             break;
+        case 'product_image':
+            updateProductImageAdmin($db);
+            break;
+        case 'product_variant':
+            updateProductVariantAdmin($db);
+            break;
         case 'order':
             updateOrder($db);
             break;
@@ -127,6 +154,12 @@ function handleDeleteRequest($db, $action) {
     switch($action) {
         case 'product':
             deleteProduct($db);
+            break;
+        case 'product_image':
+            deleteProductImageAdmin($db);
+            break;
+        case 'product_variant':
+            deleteProductVariantAdmin($db);
             break;
         case 'category':
             deleteCategory($db);
@@ -307,12 +340,15 @@ function getOrders($db) {
 
 function getProducts($db) {
     try {
+        ensureVariantsAndImagesTables($db);
         $limit = isset($_GET['limit']) ? $_GET['limit'] : 20;
         $offset = isset($_GET['offset']) ? $_GET['offset'] : 0;
         
         $query = "SELECT p.id, p.name, p.slug, p.description, p.price, p.compare_price,
                   p.sku, p.stock_quantity, p.category_id, p.image_url,
-                  p.is_active, p.is_featured, c.name as category_name, p.created_at
+                  p.is_active, p.is_featured, c.name as category_name, p.created_at,
+                  (SELECT COUNT(*) FROM product_images WHERE product_id = p.id) as image_count,
+                  (SELECT COUNT(*) FROM product_variants WHERE product_id = p.id) as variant_count
                   FROM products p
                   LEFT JOIN categories c ON p.category_id = c.id
                   ORDER BY p.created_at DESC LIMIT :limit OFFSET :offset";
@@ -356,6 +392,7 @@ function getCustomers($db) {
 }
 
 function createProduct($db) {
+    ensureVariantsAndImagesTables($db);
     $data = json_decode(file_get_contents("php://input"));
     
     if (!isset($data->name) || !isset($data->price) || !isset($data->category_id)) {
@@ -384,8 +421,28 @@ function createProduct($db) {
         $stmt->bindParam(':is_featured', $data->is_featured);
         $stmt->execute();
         
+        $newId = $db->lastInsertId();
+
+        // Also save primary image into product_images if image_url provided
+        if (!empty($data->image_url)) {
+            $stmtImg = $db->prepare("INSERT INTO product_images (product_id, image_url, is_primary, sort_order) VALUES (:pid, :img, 1, 0)");
+            $stmtImg->bindParam(':pid', $newId, PDO::PARAM_INT);
+            $stmtImg->bindParam(':img', $data->image_url);
+            $stmtImg->execute();
+        }
+
+        // Save multiple images if provided in body
+        if (isset($data->images) && is_array($data->images)) {
+            saveProductImagesArray($db, $newId, $data->images);
+        }
+
+        // Save variants if provided in body
+        if (isset($data->variants) && is_array($data->variants)) {
+            saveProductVariantsArray($db, $newId, $data->variants);
+        }
+
         http_response_code(201);
-        echo json_encode(["message" => "Product created successfully", "id" => $db->lastInsertId()]);
+        echo json_encode(["message" => "Product created successfully", "id" => $newId]);
     } catch(PDOException $exception) {
         http_response_code(500);
         echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
@@ -393,6 +450,7 @@ function createProduct($db) {
 }
 
 function updateProduct($db) {
+    ensureVariantsAndImagesTables($db);
     $data = json_decode(file_get_contents("php://input"));
     
     if (!isset($data->id)) {
@@ -431,6 +489,16 @@ function updateProduct($db) {
         $stmt->bindParam(':is_featured',   $data->is_featured);
         $stmt->bindParam(':id',            $data->id);
         $stmt->execute();
+
+        // Save multiple images if provided in body
+        if (isset($data->images) && is_array($data->images)) {
+            saveProductImagesArray($db, $data->id, $data->images);
+        }
+
+        // Save variants if provided in body
+        if (isset($data->variants) && is_array($data->variants)) {
+            saveProductVariantsArray($db, $data->id, $data->variants);
+        }
         
         http_response_code(200);
         echo json_encode(["message" => "Product updated successfully"]);
@@ -1062,6 +1130,471 @@ function deleteSetting($db) {
     } catch(PDOException $exception) {
         http_response_code(500);
         echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+/* =========================================================================
+   PRODUCT IMAGES & VARIANTS MANAGEMENT HANDLERS
+   ========================================================================= */
+
+function ensureVariantsAndImagesTables($db) {
+    static $ensured = false;
+    if ($ensured) return;
+    try {
+        $db->exec("CREATE TABLE IF NOT EXISTS product_images (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            product_id INT NOT NULL,
+            image_url VARCHAR(500) NOT NULL,
+            alt_text VARCHAR(255) DEFAULT NULL,
+            is_primary BOOLEAN DEFAULT FALSE,
+            sort_order INT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->exec("CREATE TABLE IF NOT EXISTS product_variants (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            product_id INT NOT NULL,
+            size VARCHAR(50) DEFAULT NULL,
+            color VARCHAR(100) DEFAULT NULL,
+            color_hex VARCHAR(20) DEFAULT NULL,
+            stock_quantity INT DEFAULT 0,
+            price_override DECIMAL(10, 2) DEFAULT NULL,
+            sku VARCHAR(100) DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $ensured = true;
+    } catch(Exception $e) {
+        // Silently continue
+    }
+}
+
+function getProductDetailsAdmin($db) {
+    ensureVariantsAndImagesTables($db);
+    $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(["message" => "Product ID is required"]);
+        return;
+    }
+    try {
+        $stmt = $db->prepare("SELECT p.*, c.name as category_name, c.parent_id as category_parent_id 
+                              FROM products p 
+                              LEFT JOIN categories c ON p.category_id = c.id 
+                              WHERE p.id = :id LIMIT 1");
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+        $product = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$product) {
+            http_response_code(404);
+            echo json_encode(["message" => "Product not found"]);
+            return;
+        }
+
+        $stmtImgs = $db->prepare("SELECT id, product_id, image_url, alt_text, is_primary, sort_order FROM product_images WHERE product_id = :id ORDER BY is_primary DESC, sort_order ASC, id ASC");
+        $stmtImgs->bindParam(':id', $id, PDO::PARAM_INT);
+        $stmtImgs->execute();
+        $product['images'] = $stmtImgs->fetchAll(PDO::FETCH_ASSOC);
+
+        $stmtVars = $db->prepare("SELECT id, product_id, size, color, color_hex, stock_quantity, price_override, sku FROM product_variants WHERE product_id = :id ORDER BY id ASC");
+        $stmtVars->bindParam(':id', $id, PDO::PARAM_INT);
+        $stmtVars->execute();
+        $product['variants'] = $stmtVars->fetchAll(PDO::FETCH_ASSOC);
+
+        http_response_code(200);
+        echo json_encode($product);
+    } catch(PDOException $e) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $e->getMessage()]);
+    }
+}
+
+function getProductImagesAdmin($db) {
+    ensureVariantsAndImagesTables($db);
+    $product_id = isset($_GET['product_id']) ? intval($_GET['product_id']) : 0;
+    if (!$product_id) {
+        http_response_code(400);
+        echo json_encode(["message" => "product_id is required"]);
+        return;
+    }
+    try {
+        $stmt = $db->prepare("SELECT id, product_id, image_url, alt_text, is_primary, sort_order FROM product_images WHERE product_id = :product_id ORDER BY is_primary DESC, sort_order ASC, id ASC");
+        $stmt->bindParam(':product_id', $product_id, PDO::PARAM_INT);
+        $stmt->execute();
+        http_response_code(200);
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+    } catch(PDOException $e) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $e->getMessage()]);
+    }
+}
+
+function createProductImageAdmin($db) {
+    ensureVariantsAndImagesTables($db);
+    $data = json_decode(file_get_contents("php://input"));
+    if (!isset($data->product_id) || !isset($data->image_url) || empty(trim($data->image_url))) {
+        http_response_code(400);
+        echo json_encode(["message" => "product_id and image_url are required"]);
+        return;
+    }
+    try {
+        $product_id = intval($data->product_id);
+        $image_url = trim($data->image_url);
+        $alt_text = isset($data->alt_text) ? trim($data->alt_text) : null;
+        $is_primary = !empty($data->is_primary) ? 1 : 0;
+        $sort_order = isset($data->sort_order) ? intval($data->sort_order) : 0;
+
+        // If marked primary, unset other primaries for this product
+        if ($is_primary) {
+            $stmtUnset = $db->prepare("UPDATE product_images SET is_primary = 0 WHERE product_id = :pid");
+            $stmtUnset->bindParam(':pid', $product_id, PDO::PARAM_INT);
+            $stmtUnset->execute();
+
+            // Also update product's main image_url
+            $stmtMain = $db->prepare("UPDATE products SET image_url = :img WHERE id = :pid");
+            $stmtMain->bindParam(':img', $image_url);
+            $stmtMain->bindParam(':pid', $product_id, PDO::PARAM_INT);
+            $stmtMain->execute();
+        } else {
+            // If product has no main image_url or no other images exist, set this as primary automatically
+            $stmtCheck = $db->prepare("SELECT COUNT(*) FROM product_images WHERE product_id = :pid");
+            $stmtCheck->bindParam(':pid', $product_id, PDO::PARAM_INT);
+            $stmtCheck->execute();
+            if ($stmtCheck->fetchColumn() == 0) {
+                $is_primary = 1;
+                $stmtMain = $db->prepare("UPDATE products SET image_url = :img WHERE id = :pid AND (image_url IS NULL OR image_url = '')");
+                $stmtMain->bindParam(':img', $image_url);
+                $stmtMain->bindParam(':pid', $product_id, PDO::PARAM_INT);
+                $stmtMain->execute();
+            }
+        }
+
+        $stmt = $db->prepare("INSERT INTO product_images (product_id, image_url, alt_text, is_primary, sort_order) VALUES (:pid, :img, :alt, :prim, :ord)");
+        $stmt->bindParam(':pid', $product_id, PDO::PARAM_INT);
+        $stmt->bindParam(':img', $image_url);
+        $stmt->bindParam(':alt', $alt_text);
+        $stmt->bindParam(':prim', $is_primary, PDO::PARAM_INT);
+        $stmt->bindParam(':ord', $sort_order, PDO::PARAM_INT);
+        $stmt->execute();
+
+        http_response_code(201);
+        echo json_encode(["message" => "Image added successfully", "id" => $db->lastInsertId(), "image_url" => $image_url, "is_primary" => (bool)$is_primary]);
+    } catch(PDOException $e) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $e->getMessage()]);
+    }
+}
+
+function updateProductImageAdmin($db) {
+    ensureVariantsAndImagesTables($db);
+    $data = json_decode(file_get_contents("php://input"));
+    if (!isset($data->id)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Image ID is required"]);
+        return;
+    }
+    try {
+        $id = intval($data->id);
+        $stmtFind = $db->prepare("SELECT * FROM product_images WHERE id = :id LIMIT 1");
+        $stmtFind->bindParam(':id', $id, PDO::PARAM_INT);
+        $stmtFind->execute();
+        $img = $stmtFind->fetch(PDO::FETCH_ASSOC);
+        if (!$img) {
+            http_response_code(404);
+            echo json_encode(["message" => "Image not found"]);
+            return;
+        }
+
+        $is_primary = isset($data->is_primary) ? ($data->is_primary ? 1 : 0) : $img['is_primary'];
+        $alt_text = isset($data->alt_text) ? $data->alt_text : $img['alt_text'];
+        $sort_order = isset($data->sort_order) ? intval($data->sort_order) : $img['sort_order'];
+
+        if ($is_primary && !$img['is_primary']) {
+            $stmtUnset = $db->prepare("UPDATE product_images SET is_primary = 0 WHERE product_id = :pid");
+            $stmtUnset->bindParam(':pid', $img['product_id'], PDO::PARAM_INT);
+            $stmtUnset->execute();
+
+            $stmtMain = $db->prepare("UPDATE products SET image_url = :img WHERE id = :pid");
+            $stmtMain->bindParam(':img', $img['image_url']);
+            $stmtMain->bindParam(':pid', $img['product_id'], PDO::PARAM_INT);
+            $stmtMain->execute();
+        }
+
+        $stmt = $db->prepare("UPDATE product_images SET is_primary = :prim, alt_text = :alt, sort_order = :ord WHERE id = :id");
+        $stmt->bindParam(':prim', $is_primary, PDO::PARAM_INT);
+        $stmt->bindParam(':alt', $alt_text);
+        $stmt->bindParam(':ord', $sort_order, PDO::PARAM_INT);
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+
+        http_response_code(200);
+        echo json_encode(["message" => "Image updated successfully"]);
+    } catch(PDOException $e) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $e->getMessage()]);
+    }
+}
+
+function deleteProductImageAdmin($db) {
+    ensureVariantsAndImagesTables($db);
+    $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(["message" => "Image ID is required"]);
+        return;
+    }
+    try {
+        $stmtFind = $db->prepare("SELECT product_id, image_url, is_primary FROM product_images WHERE id = :id LIMIT 1");
+        $stmtFind->bindParam(':id', $id, PDO::PARAM_INT);
+        $stmtFind->execute();
+        $img = $stmtFind->fetch(PDO::FETCH_ASSOC);
+
+        $stmt = $db->prepare("DELETE FROM product_images WHERE id = :id");
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+
+        // If the deleted image was primary, set another remaining image as primary
+        if ($img && $img['is_primary']) {
+            $stmtNext = $db->prepare("SELECT id, image_url FROM product_images WHERE product_id = :pid ORDER BY sort_order ASC, id ASC LIMIT 1");
+            $stmtNext->bindParam(':pid', $img['product_id'], PDO::PARAM_INT);
+            $stmtNext->execute();
+            $next = $stmtNext->fetch(PDO::FETCH_ASSOC);
+            if ($next) {
+                $db->exec("UPDATE product_images SET is_primary = 1 WHERE id = " . intval($next['id']));
+                $stmtMain = $db->prepare("UPDATE products SET image_url = :img WHERE id = :pid");
+                $stmtMain->bindParam(':img', $next['image_url']);
+                $stmtMain->bindParam(':pid', $img['product_id'], PDO::PARAM_INT);
+                $stmtMain->execute();
+            } else {
+                $stmtMain = $db->prepare("UPDATE products SET image_url = NULL WHERE id = :pid");
+                $stmtMain->bindParam(':pid', $img['product_id'], PDO::PARAM_INT);
+                $stmtMain->execute();
+            }
+        }
+
+        http_response_code(200);
+        echo json_encode(["message" => "Image deleted successfully"]);
+    } catch(PDOException $e) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $e->getMessage()]);
+    }
+}
+
+function saveProductImagesBulkAdmin($db) {
+    ensureVariantsAndImagesTables($db);
+    $data = json_decode(file_get_contents("php://input"));
+    if (!isset($data->product_id) || !isset($data->images) || !is_array($data->images)) {
+        http_response_code(400);
+        echo json_encode(["message" => "product_id and images array are required"]);
+        return;
+    }
+    try {
+        $product_id = intval($data->product_id);
+        saveProductImagesArray($db, $product_id, $data->images);
+        http_response_code(200);
+        echo json_encode(["message" => "Images saved successfully"]);
+    } catch(PDOException $e) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $e->getMessage()]);
+    }
+}
+
+function saveProductImagesArray($db, $productId, $images) {
+    $productId = intval($productId);
+    $order = 0;
+    foreach ($images as $img) {
+        $url = is_string($img) ? trim($img) : (isset($img->image_url) ? trim($img->image_url) : '');
+        if (empty($url)) continue;
+        $alt = is_object($img) && isset($img->alt_text) ? trim($img->alt_text) : null;
+        $is_prim = is_object($img) && !empty($img->is_primary) ? 1 : ($order === 0 ? 1 : 0);
+        $sort = is_object($img) && isset($img->sort_order) ? intval($img->sort_order) : $order;
+
+        $stmtChk = $db->prepare("SELECT id FROM product_images WHERE product_id = :pid AND image_url = :url LIMIT 1");
+        $stmtChk->bindParam(':pid', $productId, PDO::PARAM_INT);
+        $stmtChk->bindParam(':url', $url);
+        $stmtChk->execute();
+        if ($row = $stmtChk->fetch(PDO::FETCH_ASSOC)) {
+            $stmtUp = $db->prepare("UPDATE product_images SET is_primary = :prim, sort_order = :ord, alt_text = :alt WHERE id = :id");
+            $stmtUp->bindParam(':prim', $is_prim, PDO::PARAM_INT);
+            $stmtUp->bindParam(':ord', $sort, PDO::PARAM_INT);
+            $stmtUp->bindParam(':alt', $alt);
+            $stmtUp->bindParam(':id', $row['id'], PDO::PARAM_INT);
+            $stmtUp->execute();
+        } else {
+            $stmtIns = $db->prepare("INSERT INTO product_images (product_id, image_url, alt_text, is_primary, sort_order) VALUES (:pid, :url, :alt, :prim, :ord)");
+            $stmtIns->bindParam(':pid', $productId, PDO::PARAM_INT);
+            $stmtIns->bindParam(':url', $url);
+            $stmtIns->bindParam(':alt', $alt);
+            $stmtIns->bindParam(':prim', $is_prim, PDO::PARAM_INT);
+            $stmtIns->bindParam(':ord', $sort, PDO::PARAM_INT);
+            $stmtIns->execute();
+        }
+
+        if ($is_prim) {
+            $stmtMain = $db->prepare("UPDATE products SET image_url = :img WHERE id = :pid");
+            $stmtMain->bindParam(':img', $url);
+            $stmtMain->bindParam(':pid', $productId, PDO::PARAM_INT);
+            $stmtMain->execute();
+        }
+
+        $order++;
+    }
+}
+
+function getProductVariantsAdmin($db) {
+    ensureVariantsAndImagesTables($db);
+    $product_id = isset($_GET['product_id']) ? intval($_GET['product_id']) : 0;
+    if (!$product_id) {
+        http_response_code(400);
+        echo json_encode(["message" => "product_id is required"]);
+        return;
+    }
+    try {
+        $stmt = $db->prepare("SELECT id, product_id, size, color, color_hex, stock_quantity, price_override, sku FROM product_variants WHERE product_id = :pid ORDER BY id ASC");
+        $stmt->bindParam(':pid', $product_id, PDO::PARAM_INT);
+        $stmt->execute();
+        http_response_code(200);
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+    } catch(PDOException $e) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $e->getMessage()]);
+    }
+}
+
+function createProductVariantAdmin($db) {
+    ensureVariantsAndImagesTables($db);
+    $data = json_decode(file_get_contents("php://input"));
+    if (!isset($data->product_id)) {
+        http_response_code(400);
+        echo json_encode(["message" => "product_id is required"]);
+        return;
+    }
+    try {
+        $pid = intval($data->product_id);
+        $size = isset($data->size) && trim($data->size) !== '' ? trim($data->size) : null;
+        $color = isset($data->color) && trim($data->color) !== '' ? trim($data->color) : null;
+        $color_hex = isset($data->color_hex) && trim($data->color_hex) !== '' ? trim($data->color_hex) : null;
+        $stock = isset($data->stock_quantity) ? intval($data->stock_quantity) : 0;
+        $price = isset($data->price_override) && $data->price_override !== '' && $data->price_override !== null ? floatval($data->price_override) : null;
+        $sku = isset($data->sku) && trim($data->sku) !== '' ? trim($data->sku) : null;
+
+        $stmt = $db->prepare("INSERT INTO product_variants (product_id, size, color, color_hex, stock_quantity, price_override, sku) VALUES (:pid, :sz, :col, :hex, :stk, :prc, :sku)");
+        $stmt->bindParam(':pid', $pid, PDO::PARAM_INT);
+        $stmt->bindParam(':sz', $size);
+        $stmt->bindParam(':col', $color);
+        $stmt->bindParam(':hex', $color_hex);
+        $stmt->bindParam(':stk', $stock, PDO::PARAM_INT);
+        $stmt->bindParam(':prc', $price);
+        $stmt->bindParam(':sku', $sku);
+        $stmt->execute();
+
+        http_response_code(201);
+        echo json_encode(["message" => "Variant added successfully", "id" => $db->lastInsertId()]);
+    } catch(PDOException $e) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $e->getMessage()]);
+    }
+}
+
+function updateProductVariantAdmin($db) {
+    ensureVariantsAndImagesTables($db);
+    $data = json_decode(file_get_contents("php://input"));
+    if (!isset($data->id)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Variant ID is required"]);
+        return;
+    }
+    try {
+        $id = intval($data->id);
+        $size = isset($data->size) && trim($data->size) !== '' ? trim($data->size) : null;
+        $color = isset($data->color) && trim($data->color) !== '' ? trim($data->color) : null;
+        $color_hex = isset($data->color_hex) && trim($data->color_hex) !== '' ? trim($data->color_hex) : null;
+        $stock = isset($data->stock_quantity) ? intval($data->stock_quantity) : 0;
+        $price = isset($data->price_override) && $data->price_override !== '' && $data->price_override !== null ? floatval($data->price_override) : null;
+        $sku = isset($data->sku) && trim($data->sku) !== '' ? trim($data->sku) : null;
+
+        $stmt = $db->prepare("UPDATE product_variants SET size = :sz, color = :col, color_hex = :hex, stock_quantity = :stk, price_override = :prc, sku = :sku WHERE id = :id");
+        $stmt->bindParam(':sz', $size);
+        $stmt->bindParam(':col', $color);
+        $stmt->bindParam(':hex', $color_hex);
+        $stmt->bindParam(':stk', $stock, PDO::PARAM_INT);
+        $stmt->bindParam(':prc', $price);
+        $stmt->bindParam(':sku', $sku);
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+
+        http_response_code(200);
+        echo json_encode(["message" => "Variant updated successfully"]);
+    } catch(PDOException $e) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $e->getMessage()]);
+    }
+}
+
+function deleteProductVariantAdmin($db) {
+    ensureVariantsAndImagesTables($db);
+    $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(["message" => "Variant ID is required"]);
+        return;
+    }
+    try {
+        $stmt = $db->prepare("DELETE FROM product_variants WHERE id = :id");
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+        http_response_code(200);
+        echo json_encode(["message" => "Variant deleted successfully"]);
+    } catch(PDOException $e) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $e->getMessage()]);
+    }
+}
+
+function saveProductVariantsBulkAdmin($db) {
+    ensureVariantsAndImagesTables($db);
+    $data = json_decode(file_get_contents("php://input"));
+    if (!isset($data->product_id) || !isset($data->variants) || !is_array($data->variants)) {
+        http_response_code(400);
+        echo json_encode(["message" => "product_id and variants array are required"]);
+        return;
+    }
+    try {
+        $product_id = intval($data->product_id);
+        saveProductVariantsArray($db, $product_id, $data->variants);
+        http_response_code(200);
+        echo json_encode(["message" => "Variants saved successfully"]);
+    } catch(PDOException $e) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $e->getMessage()]);
+    }
+}
+
+function saveProductVariantsArray($db, $productId, $variants) {
+    $productId = intval($productId);
+    $stmtDel = $db->prepare("DELETE FROM product_variants WHERE product_id = :pid");
+    $stmtDel->bindParam(':pid', $productId, PDO::PARAM_INT);
+    $stmtDel->execute();
+
+    $stmtIns = $db->prepare("INSERT INTO product_variants (product_id, size, color, color_hex, stock_quantity, price_override, sku) VALUES (:pid, :sz, :col, :hex, :stk, :prc, :sku)");
+    foreach ($variants as $v) {
+        $sz = isset($v->size) && trim($v->size) !== '' ? trim($v->size) : null;
+        $col = isset($v->color) && trim($v->color) !== '' ? trim($v->color) : null;
+        $hex = isset($v->color_hex) && trim($v->color_hex) !== '' ? trim($v->color_hex) : null;
+        $stk = isset($v->stock_quantity) ? intval($v->stock_quantity) : 0;
+        $prc = isset($v->price_override) && $v->price_override !== '' && $v->price_override !== null ? floatval($v->price_override) : null;
+        $sku = isset($v->sku) && trim($v->sku) !== '' ? trim($v->sku) : null;
+
+        $stmtIns->bindParam(':pid', $productId, PDO::PARAM_INT);
+        $stmtIns->bindParam(':sz', $sz);
+        $stmtIns->bindParam(':col', $col);
+        $stmtIns->bindParam(':hex', $hex);
+        $stmtIns->bindParam(':stk', $stk, PDO::PARAM_INT);
+        $stmtIns->bindParam(':prc', $prc);
+        $stmtIns->bindParam(':sku', $sku);
+        $stmtIns->execute();
     }
 }
 ?>

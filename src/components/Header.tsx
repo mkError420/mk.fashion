@@ -15,7 +15,7 @@ import {
 import { useShop } from '../context/ShopContext';
 import { useFrontendData } from '../context/FrontendDataContext';
 import { CategoryType } from '../types';
-import { BLUCHEEZ_NAVBAR_ITEMS, MegaCategory } from '../data/blucheezMenu';
+import { buildUnifiedCategories, UnifiedCategory } from '../utils/categoryNav';
 
 export const Header: React.FC = () => {
   const navigate = useNavigate();
@@ -31,7 +31,11 @@ export const Header: React.FC = () => {
     setIsMobileMenuOpen,
     products
   } = useShop();
-  const { announcementText, contactPhone, deliveryFees } = useFrontendData();
+  const { announcementText, contactPhone, deliveryFees, categories: dynamicCategories } = useFrontendData();
+
+  const navCategories: UnifiedCategory[] = React.useMemo(() => {
+    return buildUnifiedCategories(dynamicCategories);
+  }, [dynamicCategories]);
 
   const [searchInput, setSearchInput] = useState(filters.query);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -132,7 +136,7 @@ export const Header: React.FC = () => {
 
   const popularSearches = ['Panjabi', 'Polo Shirt', 'Belwari Saree', 'Blucheez Black', 'Kabli Set', 'Fragrance'];
 
-  const activeMegaCategory = BLUCHEEZ_NAVBAR_ITEMS.find(c => c.id === hoveredCategory);
+  const activeMegaCategory = navCategories.find(c => c.id === hoveredCategory);
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-neutral-200 w-full shadow-xs">
@@ -475,7 +479,7 @@ export const Header: React.FC = () => {
               </button>
             </li>
 
-            {BLUCHEEZ_NAVBAR_ITEMS.map((item) => {
+            {navCategories.map((item) => {
               const isActive = filters.category === item.id;
               const isHovered = hoveredCategory === item.id;
 
@@ -645,7 +649,7 @@ export const Header: React.FC = () => {
 
                 {/* Blucheez Menu Accordions */}
                 <div className="space-y-1">
-                  {BLUCHEEZ_NAVBAR_ITEMS.map((cat) => {
+                  {navCategories.map((cat) => {
                     const isExpanded = expandedMobileCategory === cat.id;
                     const isSelected = filters.category === cat.id;
 

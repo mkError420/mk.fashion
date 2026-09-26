@@ -1,41 +1,65 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { 
-  ChevronRight, 
-  Star, 
-  Heart, 
-  ShoppingBag, 
-  Truck, 
-  ShieldCheck, 
-  RefreshCw, 
-  Ruler, 
-  Share2, 
-  Minus, 
-  Plus, 
-  Check, 
+import {
+  ChevronRight,
+  Star,
+  Heart,
+  ShoppingBag,
+  Truck,
+  ShieldCheck,
+  RefreshCw,
+  Ruler,
+  Share2,
+  Minus,
+  Plus,
+  Check,
   Sparkles,
   ArrowRight,
   MapPin,
-  CheckCircle2
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
 import { ProductCard } from '../components/ProductCard';
 import { ProductImageZoom } from '../components/ProductImageZoom';
+import { Product } from '../types';
+import { fetchProduct, convertBackendToFrontendProduct } from '../services/api';
 
 export const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { 
-    products, 
-    addToCart, 
-    openQuickCheckout, 
-    toggleWishlist, 
-    isInWishlist, 
+  const {
+    products,
+    addToCart,
+    openQuickCheckout,
+    toggleWishlist,
+    isInWishlist,
     openSizeGuide,
-    addToast 
+    addToast
   } = useShop();
 
-  const product = products.find(p => p.id === id);
+  const [directProduct, setDirectProduct] = useState<Product | null>(null);
+  const [isFetchingDirect, setIsFetchingDirect] = useState(false);
+
+  // Fetch single product from API if not yet found in context or to guarantee freshest gallery/variants
+  useEffect(() => {
+    if (id) {
+      const numId = Number(id);
+      if (!isNaN(numId) && numId > 0) {
+        setIsFetchingDirect(true);
+        fetchProduct(numId)
+          .then(data => {
+            if (data && data.id) {
+              setDirectProduct(convertBackendToFrontendProduct(data) as Product);
+            }
+          })
+          .catch(() => { })
+          .finally(() => setIsFetchingDirect(false));
+      }
+    }
+  }, [id]);
+
+  const product = directProduct || products.find(p => p.id === id || p.sku === id || p.backendId?.toString() === id);
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedSize, setSelectedSize] = useState<string>('');
@@ -52,6 +76,15 @@ export const ProductDetailPage: React.FC = () => {
       setQuantity(1);
     }
   }, [product]);
+
+  if (!product && isFetchingDirect) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
+        <RefreshCw className="w-8 h-8 animate-spin text-neutral-400 mb-3" />
+        <p className="text-sm font-medium text-neutral-600">Loading product details…</p>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -70,17 +103,31 @@ export const ProductDetailPage: React.FC = () => {
     );
   }
 
+  // Find variant matching current size & color selection
+  const matchingVariant = product.variants?.find(v => {
+    const sizeMatch = !v.size || v.size === selectedSize;
+    const colorMatch = !v.color || v.color === selectedColor;
+    return sizeMatch && colorMatch;
+  });
+
+  const effectivePrice = matchingVariant && matchingVariant.price_override != null
+    ? Number(matchingVariant.price_override)
+    : product.price;
+
+  const isVariantOutOfStock = matchingVariant ? matchingVariant.stock_quantity <= 0 : !product.inStock;
   const isFavorited = isInWishlist(product.id);
-  const isDiscounted = product.originalPrice > product.price;
-  const savingsAmount = product.originalPrice - product.price;
-  const isFreeDeliveryQualified = product.price * quantity >= 3000;
+  const isDiscounted = product.originalPrice > effectivePrice;
+  const savingsAmount = product.originalPrice - effectivePrice;
+  const isFreeDeliveryQualified = effectivePrice * quantity >= 3000;
 
   const handleAddToCart = () => {
-    addToCart(product, selectedSize, selectedColor, quantity, true);
+    const productWithEffectivePrice = { ...product, price: effectivePrice };
+    addToCart(productWithEffectivePrice, selectedSize, selectedColor, quantity, true);
   };
 
   const handleCashOnDeliveryBuyNow = () => {
-    addToCart(product, selectedSize, selectedColor, quantity, false);
+    const productWithEffectivePrice = { ...product, price: effectivePrice };
+    addToCart(productWithEffectivePrice, selectedSize, selectedColor, quantity, false);
     navigate('/checkout');
   };
 
@@ -108,14 +155,14 @@ export const ProductDetailPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      
+
       {/* Breadcrumbs */}
       <div className="w-full max-w-7xl md:max-w-none px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 mx-auto py-4 border-b border-neutral-100">
         <nav className="flex items-center space-x-2 text-xs text-neutral-500">
           <Link to="/" className="hover:text-black transition-colors">Home</Link>
           <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
-          <Link 
-            to={`/collections/${product.category}`} 
+          <Link
+            to={`/collections/${product.category}`}
             className="hover:text-black transition-colors uppercase font-medium"
           >
             {product.category}
@@ -123,8 +170,8 @@ export const ProductDetailPage: React.FC = () => {
           {product.subcategory && (
             <>
               <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
-              <Link 
-                to={`/collections/${product.category}?sub=${encodeURIComponent(product.subcategory)}`} 
+              <Link
+                to={`/collections/${product.category}?sub=${encodeURIComponent(product.subcategory)}`}
                 className="hover:text-black transition-colors"
               >
                 {product.subcategory}
@@ -139,10 +186,10 @@ export const ProductDetailPage: React.FC = () => {
       {/* Main PDP Grid */}
       <div className="w-full max-w-7xl md:max-w-none px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 mx-auto py-8 lg:py-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-          
+
           {/* LEFT: Product Photography Gallery (7 cols on lg) */}
           <div className="lg:col-span-7 flex flex-col-reverse sm:flex-row gap-4">
-            
+
             {/* Thumbnail Navigation */}
             <div className="flex sm:flex-col gap-2.5 overflow-x-auto sm:overflow-y-auto sm:w-20 flex-shrink-0">
               {product.images.map((img, idx) => (
@@ -150,9 +197,8 @@ export const ProductDetailPage: React.FC = () => {
                   key={idx}
                   type="button"
                   onClick={() => setActiveImageIndex(idx)}
-                  className={`relative w-16 h-22 sm:w-20 sm:h-28 rounded-lg overflow-hidden border-2 transition-all cursor-pointer flex-shrink-0 ${
-                    activeImageIndex === idx ? 'border-black ring-1 ring-black' : 'border-neutral-200 hover:border-neutral-400'
-                  }`}
+                  className={`relative w-16 h-22 sm:w-20 sm:h-28 rounded-lg overflow-hidden border-2 transition-all cursor-pointer flex-shrink-0 ${activeImageIndex === idx ? 'border-black ring-1 ring-black' : 'border-neutral-200 hover:border-neutral-400'
+                    }`}
                 >
                   <img
                     src={img}
@@ -190,9 +236,8 @@ export const ProductDetailPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => toggleWishlist(product.id)}
-                className={`absolute top-4 right-4 z-10 p-3 rounded-full backdrop-blur-md transition-all shadow-md cursor-pointer ${
-                  isFavorited ? 'bg-black text-white' : 'bg-white/90 hover:bg-white text-neutral-700 hover:text-black'
-                }`}
+                className={`absolute top-4 right-4 z-10 p-3 rounded-full backdrop-blur-md transition-all shadow-md cursor-pointer ${isFavorited ? 'bg-black text-white' : 'bg-white/90 hover:bg-white text-neutral-700 hover:text-black'
+                  }`}
                 aria-label={isFavorited ? 'Remove from Wishlist' : 'Add to Wishlist'}
               >
                 <Heart className={`w-5 h-5 ${isFavorited ? 'fill-white text-white' : ''}`} />
@@ -203,7 +248,7 @@ export const ProductDetailPage: React.FC = () => {
 
           {/* RIGHT: Product Ordering & Specs (5 cols on lg) */}
           <div className="lg:col-span-5 space-y-6">
-            
+
             {/* Header / Brand & Title */}
             <div>
               <div className="flex items-center justify-between text-xs text-neutral-500 mb-1">
@@ -231,10 +276,24 @@ export const ProductDetailPage: React.FC = () => {
                   <span className="text-neutral-400 font-normal">({product.reviewCount} reviews)</span>
                 </div>
 
-                <span className="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-semibold border border-emerald-200 flex items-center">
-                  <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-600" />
-                  In Stock - Dispatch within 24h
-                </span>
+                {matchingVariant ? (
+                  matchingVariant.stock_quantity > 0 ? (
+                    <span className="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-semibold border border-emerald-200 flex items-center">
+                      <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-600" />
+                      In Stock ({matchingVariant.stock_quantity} available)
+                    </span>
+                  ) : (
+                    <span className="text-xs text-rose-700 bg-rose-50 px-2 py-0.5 rounded font-semibold border border-rose-200 flex items-center">
+                      <AlertTriangle className="w-3 h-3 mr-1 text-rose-600" />
+                      Out of Stock for Selected Variant
+                    </span>
+                  )
+                ) : (
+                  <span className="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-semibold border border-emerald-200 flex items-center">
+                    <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-600" />
+                    In Stock - Dispatch within 24h
+                  </span>
+                )}
               </div>
             </div>
 
@@ -242,15 +301,20 @@ export const ProductDetailPage: React.FC = () => {
             <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-200">
               <div className="flex items-baseline space-x-3">
                 <span className="text-2xl sm:text-3xl font-black text-neutral-900">
-                  ৳{product.price.toLocaleString()}
+                  ৳{effectivePrice.toLocaleString()}
                 </span>
+                {matchingVariant && matchingVariant.price_override != null && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-black text-white px-2 py-0.5 rounded">
+                    Variant Price
+                  </span>
+                )}
                 {isDiscounted && (
                   <>
                     <span className="text-base text-neutral-400 line-through">
                       ৳{product.originalPrice.toLocaleString()}
                     </span>
                     <span className="text-xs font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded">
-                      Save ৳{savingsAmount.toLocaleString()} ({product.discountPercent}%)
+                      Save ৳{savingsAmount.toLocaleString()} ({Math.round((savingsAmount / product.originalPrice) * 100)}%)
                     </span>
                   </>
                 )}
@@ -268,7 +332,7 @@ export const ProductDetailPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="mt-3 text-xs text-neutral-600">
-                  <span>Add <strong>৳{(3000 - (product.price * quantity)).toLocaleString()}</strong> more to get <strong>FREE Nationwide Delivery</strong>.</span>
+                  <span>Add <strong>৳{(3000 - (effectivePrice * quantity)).toLocaleString()}</strong> more to get <strong>FREE Nationwide Delivery</strong>.</span>
                 </div>
               )}
             </div>
@@ -288,11 +352,10 @@ export const ProductDetailPage: React.FC = () => {
                       key={color.name}
                       type="button"
                       onClick={() => setSelectedColor(color.name)}
-                      className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-all ${
-                        selectedColor === color.name
+                      className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-all ${selectedColor === color.name
                           ? 'border-black bg-neutral-900 text-white shadow-xs'
                           : 'border-neutral-300 bg-white text-neutral-800 hover:border-neutral-400'
-                      }`}
+                        }`}
                     >
                       <span
                         className="w-3.5 h-3.5 rounded-full border border-neutral-400"
@@ -311,7 +374,7 @@ export const ProductDetailPage: React.FC = () => {
                 <span className="font-bold uppercase tracking-wider text-neutral-900">
                   Select Size: <span className="font-semibold text-neutral-700">{selectedSize}</span>
                 </span>
-                
+
                 <button
                   type="button"
                   onClick={() => openSizeGuide('panjabi')}
@@ -323,20 +386,27 @@ export const ProductDetailPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-5 gap-2">
-                {product.sizes.map(size => (
-                  <button
-                    key={size}
-                    type="button"
-                    onClick={() => setSelectedSize(size)}
-                    className={`py-2.5 text-center text-xs font-bold rounded-none border transition-all cursor-pointer ${
-                      selectedSize === size
-                        ? 'bg-black text-white border-black shadow-xs'
-                        : 'bg-white text-neutral-800 border-neutral-300 hover:border-neutral-500'
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
+                {product.sizes.map(size => {
+                  const sizeVariant = product.variants?.find(v =>
+                    v.size === size && (!selectedColor || v.color === selectedColor)
+                  );
+                  const isSizeOut = sizeVariant ? sizeVariant.stock_quantity <= 0 : false;
+                  return (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setSelectedSize(size)}
+                      className={`py-2.5 text-center text-xs font-bold rounded-none border transition-all cursor-pointer ${selectedSize === size
+                          ? 'bg-black text-white border-black shadow-xs'
+                          : isSizeOut
+                            ? 'bg-neutral-100 text-neutral-400 border-neutral-200 line-through'
+                            : 'bg-white text-neutral-800 border-neutral-300 hover:border-neutral-500'
+                        }`}
+                    >
+                      {size}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -350,7 +420,7 @@ export const ProductDetailPage: React.FC = () => {
                   type="button"
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   className="p-2.5 hover:bg-neutral-100 text-neutral-600 transition-colors cursor-pointer"
-                  disabled={quantity <= 1}
+                  disabled={quantity <= 1 || isVariantOutOfStock}
                   aria-label="Decrease quantity"
                 >
                   <Minus className="w-3.5 h-3.5" />
@@ -362,6 +432,7 @@ export const ProductDetailPage: React.FC = () => {
                   type="button"
                   onClick={() => setQuantity(quantity + 1)}
                   className="p-2.5 hover:bg-neutral-100 text-neutral-600 transition-colors cursor-pointer"
+                  disabled={isVariantOutOfStock}
                   aria-label="Increase quantity"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -371,15 +442,19 @@ export const ProductDetailPage: React.FC = () => {
 
             {/* Action Buttons: 1-Click COD & Add to Bag */}
             <div className="space-y-2.5 pt-2">
-              
+
               {/* PRIMARY ACTION 1: Direct Cash on Delivery Checkout */}
               <button
                 type="button"
                 onClick={handleCashOnDeliveryBuyNow}
-                className="w-full bg-black hover:bg-neutral-800 text-white font-bold py-4 px-6 rounded-none flex items-center justify-center space-x-2 transition-all shadow-md cursor-pointer tracking-wider uppercase text-xs sm:text-sm active:scale-98"
+                disabled={isVariantOutOfStock}
+                className={`w-full font-bold py-4 px-6 rounded-none flex items-center justify-center space-x-2 transition-all shadow-md cursor-pointer tracking-wider uppercase text-xs sm:text-sm active:scale-98 ${isVariantOutOfStock
+                    ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed'
+                    : 'bg-black hover:bg-neutral-800 text-white'
+                  }`}
               >
-                <span>Cash on Delivery Buy Now (ক্যাশ অন ডেলিভারি অর্ডার)</span>
-                <ArrowRight className="w-4 h-4" />
+                <span>{isVariantOutOfStock ? 'Out of Stock (এই ভ্যারিয়েন্টটি শেষ)' : 'Cash on Delivery Buy Now (ক্যাশ অন ডেলিভারি অর্ডার)'}</span>
+                {!isVariantOutOfStock && <ArrowRight className="w-4 h-4" />}
               </button>
 
               {/* PRIMARY ACTION 2: Add to Shopping Bag */}
@@ -387,10 +462,14 @@ export const ProductDetailPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleAddToCart}
-                  className="flex-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-bold py-3.5 px-4 rounded-none flex items-center justify-center space-x-2 transition-colors cursor-pointer text-xs uppercase tracking-wider border border-neutral-300"
+                  disabled={isVariantOutOfStock}
+                  className={`flex-1 font-bold py-3.5 px-4 rounded-none flex items-center justify-center space-x-2 transition-colors cursor-pointer text-xs uppercase tracking-wider border ${isVariantOutOfStock
+                      ? 'bg-neutral-100 text-neutral-400 border-neutral-200 cursor-not-allowed'
+                      : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-900 border-neutral-300'
+                    }`}
                 >
                   <ShoppingBag className="w-4 h-4" />
-                  <span>Add to Bag (ব্যাগে রাখুন)</span>
+                  <span>{isVariantOutOfStock ? 'Unavailable' : 'Add to Bag (ব্যাগে রাখুন)'}</span>
                 </button>
 
                 <button
@@ -444,7 +523,7 @@ export const ProductDetailPage: React.FC = () => {
 
         {/* Tabbed Product Details */}
         <div className="mt-12 pt-8 border-t border-neutral-200">
-          
+
           {/* Tab Navigation */}
           <div className="flex items-center space-x-6 border-b border-neutral-200 overflow-x-auto scrollbar-none">
             {[
@@ -457,11 +536,10 @@ export const ProductDetailPage: React.FC = () => {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`pb-3 text-xs sm:text-sm font-bold tracking-wider uppercase whitespace-nowrap cursor-pointer transition-colors border-b-2 -mb-px ${
-                  activeTab === tab.id
+                className={`pb-3 text-xs sm:text-sm font-bold tracking-wider uppercase whitespace-nowrap cursor-pointer transition-colors border-b-2 -mb-px ${activeTab === tab.id
                     ? 'border-black text-black'
                     : 'border-transparent text-neutral-400 hover:text-neutral-700'
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>
@@ -470,11 +548,11 @@ export const ProductDetailPage: React.FC = () => {
 
           {/* Tab Contents */}
           <div className="py-6 max-w-3xl text-xs sm:text-sm text-neutral-700 leading-relaxed">
-            
+
             {activeTab === 'details' && (
               <div className="space-y-4">
                 <p>{product.description}</p>
-                
+
                 <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-200 space-y-2 mt-4">
                   <div className="grid grid-cols-3 gap-2 py-1 border-b border-neutral-200">
                     <span className="font-bold text-neutral-900">Fabric:</span>
@@ -510,13 +588,13 @@ export const ProductDetailPage: React.FC = () => {
                   {product.careInstructions?.map((ins, i) => (
                     <li key={i}>{ins}</li>
                   )) || (
-                    <>
-                      <li>Dry cleaning recommended for first wash to set color vibrancy.</li>
-                      <li>Cold water gentle cycle with mild detergent.</li>
-                      <li>Do not bleach or dry under direct scorching sunlight.</li>
-                      <li>Warm iron on reverse side of decorative stitching.</li>
-                    </>
-                  )}
+                      <>
+                        <li>Dry cleaning recommended for first wash to set color vibrancy.</li>
+                        <li>Cold water gentle cycle with mild detergent.</li>
+                        <li>Do not bleach or dry under direct scorching sunlight.</li>
+                        <li>Warm iron on reverse side of decorative stitching.</li>
+                      </>
+                    )}
                 </ul>
               </div>
             )}

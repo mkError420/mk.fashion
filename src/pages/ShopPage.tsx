@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
 import { useFrontendData } from '../context/FrontendDataContext';
+import { buildUnifiedCategories, UnifiedCategory } from '../utils/categoryNav';
 import { ProductCard } from '../components/ProductCard';
 import { Product } from '../types';
 
@@ -193,48 +194,24 @@ export const ShopPage: React.FC = () => {
     loadCategories();
   }, []);
 
-  // Dynamically constructed categories from Database + Fallbacks
+  // Dynamically constructed categories from Database + Fallbacks via unified category utility
   const shopCategories: SidebarCategory[] = useMemo(() => {
-    if (dynamicCategories && dynamicCategories.length > 0) {
-      // Find top-level / parent categories
-      const parents = dynamicCategories.filter(c => c.parent_id === null || c.parent_id === 0);
-      const parentList = parents.length > 0 ? parents : dynamicCategories;
-
-      const built: SidebarCategory[] = [
-        {
-          id: 'all',
-          name: 'All Collections',
-          bengaliName: 'সকল কালেকশন',
-          subcategories: []
-        }
-      ];
-
-      parentList.forEach(parent => {
-        const pid = parent.id;
-        const slug = (parent.slug || parent.name).toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        
-        // Find subcategories belonging to this parent category
-        const childCats = dynamicCategories.filter(
-          c => (c.parent_id === pid || c.parent_name?.toLowerCase() === parent.name.toLowerCase() || c.parent_slug?.toLowerCase() === slug) && c.id !== pid
-        );
-
-        const subNames = Array.from(new Set(childCats.map(c => c.name.trim()).filter(Boolean)));
-        const knownMeta = KNOWN_CATEGORY_META[slug] || KNOWN_CATEGORY_META[parent.name.toLowerCase()] || {};
-        const fallbackSubs = INITIAL_SHOP_CATEGORIES.find(c => c.id === slug || c.name.toLowerCase() === parent.name.toLowerCase())?.subcategories || [];
-
-        built.push({
-          id: slug,
-          name: parent.name,
-          bengaliName: knownMeta.bengaliName || parent.description || parent.name,
-          badge: knownMeta.badge || (parent.description?.includes('New') ? 'New' : undefined),
-          subcategories: subNames.length > 0 ? subNames : fallbackSubs
-        });
-      });
-
-      return built;
-    }
-
-    return INITIAL_SHOP_CATEGORIES;
+    const unified = buildUnifiedCategories(dynamicCategories);
+    return [
+      {
+        id: 'all',
+        name: 'All Collections',
+        bengaliName: 'সকল কালেকশন',
+        subcategories: []
+      },
+      ...unified.map(u => ({
+        id: u.id,
+        name: u.name,
+        bengaliName: u.bengaliName || u.name,
+        badge: u.badge,
+        subcategories: u.subcategories
+      }))
+    ];
   }, [dynamicCategories]);
 
   // Active Filters from URL / State
@@ -281,6 +258,12 @@ export const ShopPage: React.FC = () => {
     ]);
     setInStockOnly(searchParams.get('inStock') === 'true');
     setOnSaleOnly(searchParams.get('onSale') === 'true');
+    
+    // Automatically expand the category accordion when visiting a category or subcategory
+    const activeCat = routeCategory || searchParams.get('category');
+    if (activeCat && activeCat !== 'all') {
+      setOpenCategoryAccordion(activeCat);
+    }
   }, [searchParams, routeCategory]);
 
   const toggleCategoryAccordion = (catId: string) => {
@@ -409,27 +392,23 @@ export const ShopPage: React.FC = () => {
       // Category Match
       if (selectedCategory !== 'all') {
         const catLower = selectedCategory.toLowerCase();
-        if (catLower === 'men') {
-          if (product.gender !== 'men' && product.category !== 'men') return false;
-        } else if (catLower === 'women') {
-          if (product.gender !== 'women' && product.category !== 'women') return false;
-        } else {
-          const catObj = shopCategories.find(c => c.id === selectedCategory || c.name.toLowerCase() === catLower);
-          const pCat = (product.category || '').toLowerCase();
-          const matchDirect = pCat === catLower;
-          const matchName = catObj && pCat === catObj.name.toLowerCase();
-          const matchBadge = catObj && product.badge?.toLowerCase().includes(catObj.name.toLowerCase());
+        const catObj = shopCategories.find(c => c.id === catLower || c.name.toLowerCase() === catLower);
+        const pCat = (product.category || '').toLowerCase();
 
-          if (!matchDirect && !matchName && !matchBadge) {
-            // Also check if product subcategory belongs to this category
-            if (catObj && catObj.subcategories.length > 0 && product.subcategory) {
-              const inSub = catObj.subcategories.some(s => s.toLowerCase() === product.subcategory?.toLowerCase());
-              if (!inSub) return false;
-            } else {
-              return false;
-            }
-          }
+        let match = false;
+        if (pCat === catLower || (catObj && pCat === catObj.name.toLowerCase())) {
+          match = true;
+        } else if (catLower === 'men' && (product.gender === 'men' || pCat.includes('men'))) {
+          match = true;
+        } else if (catLower === 'women' && (product.gender === 'women' || pCat.includes('women'))) {
+          match = true;
+        } else if (catObj && catObj.subcategories.length > 0 && product.subcategory) {
+          match = catObj.subcategories.some(s => s.toLowerCase() === product.subcategory?.toLowerCase());
+        } else if (catObj && product.badge && product.badge.toLowerCase().includes(catObj.name.toLowerCase())) {
+          match = true;
         }
+
+        if (!match) return false;
       }
 
       // Subcategory Match
@@ -438,7 +417,7 @@ export const ShopPage: React.FC = () => {
         const pSub = (product.subcategory || '').toLowerCase();
         const pName = product.name.toLowerCase();
         const pCat = (product.category || '').toLowerCase();
-        if (!pSub.includes(sub) && !pName.includes(sub) && !pCat.includes(sub)) {
+        if (pSub !== sub && !pSub.includes(sub) && !pName.includes(sub) && !pCat.includes(sub)) {
           return false;
         }
       }

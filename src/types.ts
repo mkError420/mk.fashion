@@ -17,6 +17,17 @@ export type CategoryType =
   | 'waistcoats'
   | (string & {});
 
+export interface ProductVariant {
+  id?: number;
+  product_id?: number;
+  size?: string | null;
+  color?: string | null;
+  color_hex?: string | null;
+  stock_quantity: number;
+  price_override?: number | null;
+  sku?: string | null;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -34,6 +45,7 @@ export interface Product {
   badge?: 'Blucheez Exclusive' | 'Black Label' | 'Belwari Heritage' | 'Festive Special' | 'Bestseller' | 'New Arrival' | 'Summer Essential' | 'Top Ten Pick' | 'Richman Exclusive' | 'Rang Heritage';
   sizes: string[];
   colors: { name: string; hex: string }[];
+  variants?: ProductVariant[];
   fabric: string;
   fit: string;
   description: string;

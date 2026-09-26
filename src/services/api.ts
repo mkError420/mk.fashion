@@ -1,3 +1,5 @@
+import { Product } from '../types';
+
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://efashionbd.rf.gd/backend/api';
 
@@ -25,6 +27,17 @@ export interface BackendProductSize {
   stock_quantity: number;
 }
 
+export interface BackendProductVariant {
+  id?: number;
+  product_id?: number;
+  size?: string | null;
+  color?: string | null;
+  color_hex?: string | null;
+  stock_quantity: number;
+  price_override?: number | null;
+  sku?: string | null;
+}
+
 export interface BackendProduct {
   id: number;
   name: string;
@@ -39,8 +52,11 @@ export interface BackendProduct {
   is_active: boolean;
   category_name: string | null;
   category_slug: string | null;
+  subcategory_name?: string | null;
+  subcategory_slug?: string | null;
   images: BackendProductImage[];
   sizes: BackendProductSize[];
+  variants?: BackendProductVariant[];
 }
 
 export interface BackendCartItem {
@@ -237,18 +253,49 @@ export const fetchOrder = async (orderNumber: string): Promise<BackendOrder> => 
 };
 
 // Helper function to convert backend product to frontend product
-export const convertBackendToFrontendProduct = (backendProduct: BackendProduct) => {
-  // Guard against null/undefined images and sizes returned by the API
+export const convertBackendToFrontendProduct = (backendProduct: BackendProduct): Product => {
+  // Guard against null/undefined images, sizes, and variants returned by the API
   const safeImages: BackendProductImage[] = Array.isArray(backendProduct.images) ? backendProduct.images : [];
   const safeSizes: BackendProductSize[] = Array.isArray(backendProduct.sizes) ? backendProduct.sizes : [];
+  const safeVariants: BackendProductVariant[] = Array.isArray(backendProduct.variants) ? backendProduct.variants : [];
 
-  const images = safeImages.length > 0
-    ? safeImages.map(img => img.image_url)
-    : (backendProduct.image_url ? [backendProduct.image_url] : ['/placeholder-product.jpg']);
+  // Build complete list of images: main image_url + all product_images gallery, preserving order with no duplicates
+  const imagesList: string[] = [];
+  if (backendProduct.image_url && backendProduct.image_url.trim()) {
+    imagesList.push(backendProduct.image_url.trim());
+  }
+  safeImages.forEach(img => {
+    if (img && img.image_url && img.image_url.trim()) {
+      const trimmed = img.image_url.trim();
+      if (!imagesList.includes(trimmed)) {
+        imagesList.push(trimmed);
+      }
+    }
+  });
+  const images = imagesList.length > 0 ? imagesList : ['/placeholder-product.jpg'];
   
-  const sizes = safeSizes.length > 0
-    ? safeSizes.map(s => s.size)
-    : ['Free Size'];
+  // Extract distinct sizes from variants or safeSizes
+  const variantSizes = Array.from(new Set(safeVariants.map(v => v.size).filter((s): s is string => Boolean(s && s.trim()))));
+  const sizes = variantSizes.length > 0
+    ? variantSizes
+    : (safeSizes.length > 0
+        ? safeSizes.map(s => s.size)
+        : ['Free Size']);
+
+  // Extract distinct colors from variants
+  const colorMap = new Map<string, string>();
+  safeVariants.forEach(v => {
+    if (v.color && v.color.trim()) {
+      const name = v.color.trim();
+      if (!colorMap.has(name)) {
+        colorMap.set(name, v.color_hex && v.color_hex.trim() ? v.color_hex.trim() : '#000000');
+      }
+    }
+  });
+
+  const colors = colorMap.size > 0
+    ? Array.from(colorMap.entries()).map(([name, hex]) => ({ name, hex }))
+    : [{ name: 'Standard', hex: '#000000' }];
 
   return {
     id: backendProduct.id.toString(),
@@ -256,8 +303,8 @@ export const convertBackendToFrontendProduct = (backendProduct: BackendProduct) 
     name: backendProduct.name,
     bengaliName: backendProduct.name, // Use same name for now
     category: backendProduct.category_slug as any || 'all',
-    subcategory: undefined,
-    gender: 'unisex' as const,
+    subcategory: backendProduct.subcategory_name || undefined,
+    gender: (backendProduct.category_slug === 'men' ? 'men' : backendProduct.category_slug === 'women' ? 'women' : 'unisex') as any,
     price: backendProduct.price,
     originalPrice: backendProduct.compare_price || backendProduct.price,
     discountPercent: backendProduct.compare_price 
@@ -269,7 +316,17 @@ export const convertBackendToFrontendProduct = (backendProduct: BackendProduct) 
     images,
     badge: backendProduct.is_featured ? 'Bestseller' : undefined,
     sizes,
-    colors: [{ name: 'Standard', hex: '#000000' }], // Default color
+    colors,
+    variants: safeVariants.map(v => ({
+      id: v.id,
+      product_id: v.product_id || backendProduct.id,
+      size: v.size || undefined,
+      color: v.color || undefined,
+      color_hex: v.color_hex || undefined,
+      stock_quantity: v.stock_quantity ?? 0,
+      price_override: v.price_override ? Number(v.price_override) : undefined,
+      sku: v.sku || undefined,
+    })),
     fabric: 'Premium Material',
     fit: 'Regular Fit',
     description: backendProduct.description || 'No description available',
@@ -283,7 +340,7 @@ export const convertBackendToFrontendProduct = (backendProduct: BackendProduct) 
       'Do not bleach',
       'Tumble dry low'
     ],
-    inStock: backendProduct.stock_quantity > 0,
+    inStock: backendProduct.stock_quantity > 0 || safeVariants.some(v => v.stock_quantity > 0),
     stockCount: backendProduct.stock_quantity,
   };
 };

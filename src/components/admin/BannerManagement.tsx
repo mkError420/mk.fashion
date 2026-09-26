@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAdminData } from '../../context/AdminDataContext';
-import { Plus, Edit2, Trash2, X, Check, Image as ImageIcon, ExternalLink, Calendar, Video, ArrowRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Check, Image as ImageIcon, ExternalLink, Calendar, Video, ArrowRight, LinkIcon } from 'lucide-react';
 import { MediaUpload } from './MediaUpload';
 
 interface BannerManagementProps {
@@ -28,10 +28,10 @@ export const BannerManagement: React.FC<BannerManagementProps> = ({ onNavigateTo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = editingBanner 
+    const success = editingBanner
       ? await updateBanner(editingBanner.id, formData)
       : await createBanner(formData);
-    
+
     if (success) {
       setIsEditing(false);
       setEditingBanner(null);
@@ -141,7 +141,7 @@ export const BannerManagement: React.FC<BannerManagementProps> = ({ onNavigateTo
                 Set banner images, destination links, schedule, and display order
               </p>
             </div>
-            <button 
+            <button
               onClick={handleCancel}
               className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition"
             >
@@ -191,7 +191,7 @@ export const BannerManagement: React.FC<BannerManagementProps> = ({ onNavigateTo
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
+              <div className="md:col-span-2">
                 <MediaUpload
                   label="BANNER IMAGE"
                   accept="image"
@@ -199,6 +199,18 @@ export const BannerManagement: React.FC<BannerManagementProps> = ({ onNavigateTo
                   onChange={url => setFormData({ ...formData, image_url: url })}
                   placeholder="https://images.unsplash.com/…"
                   required
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                  <LinkIcon className="w-3.5 h-3.5 text-gray-500" /> Redirect Link URL
+                </label>
+                <input
+                  type="text"
+                  value={formData.link_url}
+                  onChange={(e) => setFormData({ ...formData, link_url: e.target.value })}
+                  placeholder="/collections/panjabi or https://…"
+                  className="w-full px-3.5 py-2.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white text-sm transition"
                 />
               </div>
               <div>
@@ -277,10 +289,10 @@ export const BannerManagement: React.FC<BannerManagementProps> = ({ onNavigateTo
                 <tr key={banner.id} className="hover:bg-gray-50/60 transition-colors">
                   <td className="py-3.5 px-5">
                     <div className="w-24 h-14 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
-                      <img 
-                        src={banner.image_url} 
-                        alt={banner.title} 
-                        className="w-full h-full object-cover" 
+                      <img
+                        src={banner.image_url}
+                        alt={banner.title}
+                        className="w-full h-full object-cover"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150x80?text=No+Image';
                         }}
@@ -309,11 +321,10 @@ export const BannerManagement: React.FC<BannerManagementProps> = ({ onNavigateTo
                     )}
                   </td>
                   <td className="py-3.5 px-5">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                      banner.is_active 
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' 
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${banner.is_active
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/50'
                         : 'bg-gray-100 text-gray-600 border border-gray-200'
-                    }`}>
+                      }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${banner.is_active ? 'bg-emerald-500' : 'bg-gray-400'}`} />
                       {banner.is_active ? 'Active' : 'Inactive'}
                     </span>
