@@ -197,7 +197,7 @@ export const ProductDetailPage: React.FC = () => {
                   key={idx}
                   type="button"
                   onClick={() => setActiveImageIndex(idx)}
-                  className={`relative w-16 h-22 sm:w-20 sm:h-28 rounded-lg overflow-hidden border-2 transition-all cursor-pointer flex-shrink-0 ${activeImageIndex === idx ? 'border-black ring-1 ring-black' : 'border-neutral-200 hover:border-neutral-400'
+                  className={`relative w-16 h-20 sm:w-20 sm:h-24 rounded-lg overflow-hidden border-2 transition-all cursor-pointer flex-shrink-0 ${activeImageIndex === idx ? 'border-black ring-1 ring-black' : 'border-neutral-200 hover:border-neutral-400'
                     }`}
                 >
                   <img
@@ -210,7 +210,7 @@ export const ProductDetailPage: React.FC = () => {
             </div>
 
             {/* Primary Featured Image Viewport with Dynamic Hover Magnification Zoom */}
-            <div className="flex-1 relative aspect-3/4 rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200">
+            <div className="flex-1 relative aspect-square rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200">
               <ProductImageZoom
                 src={product.images[activeImageIndex] || product.images[0]}
                 alt={product.name}

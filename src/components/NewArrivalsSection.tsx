@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
@@ -16,8 +16,17 @@ export const NewArrivalsSection: React.FC = () => {
     .map((d) => bengaliDigits[parseInt(d, 10)] || d)
     .join('');
 
-  // Get the last 12 items (or newest 12 items in catalog - 3 rows of 4 columns)
-  const newArrivalProducts = [...products].reverse().slice(0, 12);
+  // Get the last 12 uploaded products (guaranteeing newest uploaded products first by ID / created_at)
+  const newArrivalProducts = useMemo(() => {
+    return [...products]
+      .sort((a, b) => {
+        const idA = a.backendId ?? (parseInt(a.id.replace(/\D/g, ''), 10) || 0);
+        const idB = b.backendId ?? (parseInt(b.id.replace(/\D/g, ''), 10) || 0);
+        if (idA !== idB) return idB - idA;
+        return 0;
+      })
+      .slice(0, 12);
+  }, [products]);
 
   return (
     <section className="w-full max-w-7xl md:max-w-none mx-auto px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16">
