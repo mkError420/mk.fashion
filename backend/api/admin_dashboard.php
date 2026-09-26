@@ -86,6 +86,9 @@ function handlePostRequest($db, $action) {
         case 'setting':
             createSetting($db);
             break;
+        case 'sync_categories':
+            syncFrontendCategories($db);
+            break;
         default:
             http_response_code(400);
             echo json_encode(["message" => "Invalid action"]);
@@ -573,6 +576,138 @@ function deleteCategory($db) {
         
         http_response_code(200);
         echo json_encode(["message" => "Category deleted successfully"]);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    }
+}
+
+function syncFrontendCategories($db) {
+    $catalogStructure = [
+        [
+            'name' => 'NEW IN',
+            'slug' => 'new-in',
+            'description' => 'Latest arrivals, Eid & Festive Drop 2026',
+            'subcategories' => [
+                'Essential Panjabi', 'Exclusive Panjabi', 'Formal Shirts', 'Polo Shirts', 'Waistcoats',
+                'Belwari Jamdani Sarees', 'Embroidered Kurti Sets', 'Two-Piece Kurti', 'Three-Piece Kurti', 'Anarkali',
+                'Blucheez Black Label', 'Belwari Signature', 'Summer Polos', 'Fragrances'
+            ]
+        ],
+        [
+            'name' => 'SUMMER',
+            'slug' => 'summer',
+            'description' => 'Summer Breeze Collection and breathable knitwear',
+            'subcategories' => [
+                'Sweater Polos', 'Boxy-Fit Drop Shoulder Polos', 'Classic Polos', 'Drop Shoulder T-Shirt', 'Oversized T-Shirt',
+                'Lawn Cotton Panjabi', 'Short Sleeve Panjabi', 'Cotton Pajama', 'Breathable Kurtis',
+                'Casual Shirts', 'Relaxed Wear', 'Shorts', 'Cotton Chinos'
+            ]
+        ],
+        [
+            'name' => 'BLUCHEEZ | BLACK',
+            'slug' => 'blucheez-black',
+            'description' => 'The Monochrome Atelier & Luxury Society Label',
+            'subcategories' => [
+                'Panjabi | Black', 'Executive Wool Blazers', 'Tailored Black Shirts', 'Slim Fit Black Trousers',
+                'Black Zari Suits', 'Draped Sarees', 'Obsidian Cufflinks', 'Italian Leather Belts', 'Premium Noir Fragrance'
+            ]
+        ],
+        [
+            'name' => 'BELWARI',
+            'slug' => 'belwari',
+            'description' => 'Handcrafted Heritage Handloom & Royal Ethnic',
+            'subcategories' => [
+                'Belwari Jamdani Saree', 'Zari Embroidered Suit', 'Artisan Silk Kurtis', 'Heritage Zari Panjabi',
+                'Two-Piece Salwar Kameez', 'Bridal & Reception Sets'
+            ]
+        ],
+        [
+            'name' => 'MEN',
+            'slug' => 'men',
+            'description' => 'The Modern Gentleman - Panjabi, Shirts, Polos, & Pants',
+            'subcategories' => [
+                'Elegant Panjabi', 'Kabli Set', 'Pajama', 'Formal Shirt', 'Premium Shirt', 'Casual Shirt',
+                'Giza Cotton Shirt', 'Formal Pant', 'Casual Pant', 'Jeans', 'Slim-Fit Pajama', 'Wide-Leg Pajama'
+            ]
+        ],
+        [
+            'name' => 'WOMEN',
+            'slug' => 'women',
+            'description' => 'Graceful Elegance - Festive, Kurtis, Sarees, & Western',
+            'subcategories' => [
+                'Salwar Kameez', 'Dhakai Jamdani Saree', 'Western Tops', 'Tops & Tunics', 'Denim Jeans',
+                'Wide Leg Pants', 'Seasonal Apparel', 'Belwari Heritage Sarees', 'Designer Party Kurtis'
+            ]
+        ],
+        [
+            'name' => 'ACCESSORIES',
+            'slug' => 'accessories',
+            'description' => 'Curated Essentials, Caps, Eyewear, Leather Belts & Fragrances',
+            'subcategories' => [
+                'Caps', 'Eyewear', 'Fragrances (Men & Women)', 'Genuine Leather Belts', 'Wallets', 'Cufflinks'
+            ]
+        ]
+    ];
+
+    try {
+        $added = 0;
+        $total = 0;
+
+        foreach ($catalogStructure as $parentData) {
+            // Check if parent category exists by slug or name
+            $checkParent = $db->prepare("SELECT id FROM categories WHERE slug = :slug OR name = :name LIMIT 1");
+            $checkParent->bindParam(':slug', $parentData['slug']);
+            $checkParent->bindParam(':name', $parentData['name']);
+            $checkParent->execute();
+            $parent = $checkParent->fetch(PDO::FETCH_ASSOC);
+
+            if ($parent) {
+                $parentId = $parent['id'];
+            } else {
+                $insertParent = $db->prepare("INSERT INTO categories (name, slug, description, parent_id) VALUES (:name, :slug, :description, NULL)");
+                $insertParent->bindParam(':name', $parentData['name']);
+                $insertParent->bindParam(':slug', $parentData['slug']);
+                $insertParent->bindParam(':description', $parentData['description']);
+                $insertParent->execute();
+                $parentId = $db->lastInsertId();
+                $added++;
+            }
+            $total++;
+
+            // Insert subcategories under this parent
+            foreach ($parentData['subcategories'] as $subName) {
+                $total++;
+                $baseSlug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $subName)));
+                $subSlug = $parentData['slug'] . '-' . $baseSlug;
+
+                // Check if subcategory already exists under this parent
+                $checkSub = $db->prepare("SELECT id FROM categories WHERE (parent_id = :parent_id AND name = :name) OR slug = :slug LIMIT 1");
+                $checkSub->bindParam(':parent_id', $parentId);
+                $checkSub->bindParam(':name', $subName);
+                $checkSub->bindParam(':slug', $subSlug);
+                $checkSub->execute();
+
+                if (!$checkSub->fetch()) {
+                    $desc = $subName . ' in ' . $parentData['name'];
+                    $insertSub = $db->prepare("INSERT INTO categories (name, slug, description, parent_id) VALUES (:name, :slug, :desc, :parent_id)");
+                    $insertSub->bindParam(':name', $subName);
+                    $insertSub->bindParam(':slug', $subSlug);
+                    $insertSub->bindParam(':desc', $desc);
+                    $insertSub->bindParam(':parent_id', $parentId);
+                    $insertSub->execute();
+                    $added++;
+                }
+            }
+        }
+
+        http_response_code(200);
+        echo json_encode([
+            "success" => true,
+            "message" => "Frontend categories and subcategories synchronized successfully",
+            "added" => $added,
+            "total" => $total
+        ]);
     } catch(PDOException $exception) {
         http_response_code(500);
         echo json_encode(["message" => "Database error: " . $exception->getMessage()]);

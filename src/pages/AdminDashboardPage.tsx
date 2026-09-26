@@ -73,7 +73,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   const loadDashboardData = async (showRefresh = false) => {
     if (showRefresh) setIsRefreshing(true);
-    else setIsLoading(true);
+    else if (!stats) setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/admin_dashboard.php?action=stats`, {
         credentials: 'include',
@@ -95,7 +95,11 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
-  useEffect(() => { if (isAdmin) loadDashboardData(); }, [isAdmin, activeTab]);
+  useEffect(() => { 
+    if (isAdmin) {
+      loadDashboardData();
+    }
+  }, [isAdmin]);
 
   const handleLogout = () => { logout(); navigate('/admin/login'); };
 
@@ -104,12 +108,12 @@ export const AdminDashboardPage: React.FC = () => {
     setIsSidebarOpen(false);
   };
 
-  if (authLoading || isLoading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-gray-900 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 font-medium">Loading dashboard...</p>
+          <p className="text-gray-600 font-medium">Verifying session...</p>
         </div>
       </div>
     );
@@ -149,11 +153,12 @@ export const AdminDashboardPage: React.FC = () => {
           {NAV_ITEMS.map(item => (
             <button
               key={item.id}
+              type="button"
               onClick={() => handleTabChange(item.id)}
               className={`
-                w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200
+                w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer
                 ${activeTab === item.id
-                  ? 'bg-white text-gray-950 shadow-sm'
+                  ? 'bg-white text-gray-950 shadow-sm font-semibold'
                   : 'text-gray-400 hover:bg-white/10 hover:text-white'}
               `}
             >
@@ -223,6 +228,12 @@ export const AdminDashboardPage: React.FC = () => {
 
           {/* ── OVERVIEW ── */}
           {activeTab === 'overview' && (
+            isLoading && !stats ? (
+              <div className="flex flex-col items-center justify-center py-24">
+                <div className="w-10 h-10 border-4 border-gray-900 border-t-transparent rounded-full animate-spin mb-3" />
+                <p className="text-gray-500 font-medium text-sm">Loading analytics & statistics...</p>
+              </div>
+            ) : (
             <div className="space-y-6">
 
               {/* Stat Cards */}
@@ -423,6 +434,7 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
               </div>
             </div>
+            )
           )}
 
           {/* ── OTHER TABS ── */}
