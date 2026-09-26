@@ -310,8 +310,9 @@ function getProducts($db) {
         $limit = isset($_GET['limit']) ? $_GET['limit'] : 20;
         $offset = isset($_GET['offset']) ? $_GET['offset'] : 0;
         
-        $query = "SELECT p.id, p.name, p.price, p.stock_quantity, p.is_active, p.is_featured, 
-                  c.name as category_name, p.created_at
+        $query = "SELECT p.id, p.name, p.slug, p.description, p.price, p.compare_price,
+                  p.sku, p.stock_quantity, p.category_id, p.image_url,
+                  p.is_active, p.is_featured, c.name as category_name, p.created_at
                   FROM products p
                   LEFT JOIN categories c ON p.category_id = c.id
                   ORDER BY p.created_at DESC LIMIT :limit OFFSET :offset";
@@ -401,16 +402,34 @@ function updateProduct($db) {
     }
     
     try {
-        $query = "UPDATE products SET name = :name, price = :price, stock_quantity = :stock_quantity, 
-                  is_active = :is_active, is_featured = :is_featured WHERE id = :id";
+        $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $data->name)));
+        $compare_price = isset($data->compare_price) && $data->compare_price !== '' ? $data->compare_price : null;
+        $category_id   = isset($data->category_id)   && $data->category_id   !== '' ? $data->category_id   : null;
+        $sku           = isset($data->sku)           ? $data->sku           : null;
+        $image_url     = isset($data->image_url)     ? $data->image_url     : null;
+        $description   = isset($data->description)   ? $data->description   : null;
+
+        $query = "UPDATE products SET
+                  name = :name, slug = :slug, description = :description,
+                  price = :price, compare_price = :compare_price,
+                  sku = :sku, stock_quantity = :stock_quantity,
+                  category_id = :category_id, image_url = :image_url,
+                  is_active = :is_active, is_featured = :is_featured
+                  WHERE id = :id";
         
         $stmt = $db->prepare($query);
-        $stmt->bindParam(':name', $data->name);
-        $stmt->bindParam(':price', $data->price);
-        $stmt->bindParam(':stock_quantity', $data->stock_quantity);
-        $stmt->bindParam(':is_active', $data->is_active);
-        $stmt->bindParam(':is_featured', $data->is_featured);
-        $stmt->bindParam(':id', $data->id);
+        $stmt->bindParam(':name',          $data->name);
+        $stmt->bindParam(':slug',          $slug);
+        $stmt->bindParam(':description',   $description);
+        $stmt->bindParam(':price',         $data->price);
+        $stmt->bindParam(':compare_price', $compare_price);
+        $stmt->bindParam(':sku',           $sku);
+        $stmt->bindParam(':stock_quantity',$data->stock_quantity);
+        $stmt->bindParam(':category_id',   $category_id);
+        $stmt->bindParam(':image_url',     $image_url);
+        $stmt->bindParam(':is_active',     $data->is_active);
+        $stmt->bindParam(':is_featured',   $data->is_featured);
+        $stmt->bindParam(':id',            $data->id);
         $stmt->execute();
         
         http_response_code(200);
