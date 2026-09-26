@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useFrontendData } from '../context/FrontendDataContext';
 import { 
   Phone, 
   Mail, 
@@ -9,6 +10,7 @@ import {
 } from 'lucide-react';
 
 export const Footer: React.FC = () => {
+  const { contactPhone, contactEmail } = useFrontendData();
   return (
     <footer className="bg-black text-neutral-400 pt-16 pb-24 md:pb-12 border-t border-neutral-800 w-full">
       <div className="w-full max-w-7xl md:max-w-none px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 mx-auto">
@@ -78,11 +80,11 @@ export const Footer: React.FC = () => {
             <div className="space-y-1.5 text-xs text-neutral-400">
               <div className="flex items-center space-x-2">
                 <Phone className="w-3.5 h-3.5 text-neutral-300" />
-                <span>Customer Care: <strong className="text-neutral-200">09613-258248</strong> (10:00 AM - 10:00 PM)</span>
+                <span>Customer Care: <strong className="text-neutral-200">{contactPhone || '09613-258248'}</strong> (10:00 AM - 10:00 PM)</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Mail className="w-3.5 h-3.5 text-neutral-300" />
-                <span>Email: support@blucheez.fashion</span>
+                <span>Email: {contactEmail || 'support@blucheez.fashion'}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Banknote className="w-3.5 h-3.5 text-neutral-300" />

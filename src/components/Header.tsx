@@ -13,6 +13,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
+import { useFrontendData } from '../context/FrontendDataContext';
 import { CategoryType } from '../types';
 import { BLUCHEEZ_NAVBAR_ITEMS, MegaCategory } from '../data/blucheezMenu';
 
@@ -30,6 +31,7 @@ export const Header: React.FC = () => {
     setIsMobileMenuOpen,
     products
   } = useShop();
+  const { announcementText, contactPhone, deliveryFees } = useFrontendData();
 
   const [searchInput, setSearchInput] = useState(filters.query);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -135,16 +137,16 @@ export const Header: React.FC = () => {
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-neutral-200 w-full shadow-xs">
       
-      {/* Top Announcement Bar - Blucheez Monochrome & Clean */}
+      {/* Top Announcement Bar */}
       <div className="bg-black text-neutral-300 text-[10px] sm:text-xs px-3 sm:px-4 py-1.5 sm:py-2 border-b border-neutral-800 w-full overflow-hidden">
         <div className="w-full max-w-7xl md:max-w-none px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 mx-auto flex flex-nowrap sm:flex-wrap items-center justify-between gap-1 sm:gap-2">
           <div className="flex items-center space-x-2 text-[10px] sm:text-xs truncate min-w-0 flex-1">
             <span className="font-semibold tracking-wide text-white uppercase flex items-center truncate">
-              <span className="truncate">Cash on Delivery Available Nationwide • 100% Cotton</span>
+              <span className="truncate">{announcementText}</span>
             </span>
             <span className="hidden md:inline text-neutral-600 shrink-0">•</span>
             <span className="hidden md:inline text-neutral-300 shrink-0">
-              Inside Dhaka ৳60 | Outside ৳120
+              Inside Dhaka ৳{deliveryFees.insideDhaka} | Outside ৳{deliveryFees.outsideDhaka}
             </span>
           </div>
 
@@ -166,7 +168,7 @@ export const Header: React.FC = () => {
             <span className="hidden sm:inline text-neutral-700">|</span>
             <div className="hidden sm:flex items-center text-neutral-300">
               <Phone className="w-3 h-3 mr-1 text-white" />
-              <span>Hotline: <strong className="text-white">09613-258248</strong></span>
+              <span>Hotline: <strong className="text-white">{contactPhone}</strong></span>
             </div>
           </div>
         </div>

@@ -150,29 +150,94 @@ function getDashboardStats($db) {
         $query = "SELECT COUNT(*) as total FROM products WHERE is_active = 1";
         $stmt = $db->prepare($query);
         $stmt->execute();
-        $totalProducts = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+        $totalProducts = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
         
         // Get total orders
         $query = "SELECT COUNT(*) as total FROM orders";
         $stmt = $db->prepare($query);
         $stmt->execute();
-        $totalOrders = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+        $totalOrders = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
         
-        // Get total revenue
-        $query = "SELECT SUM(total_amount) as total FROM orders WHERE payment_status = 'paid'";
+        // Get total revenue (ALL orders, not just paid)
+        $query = "SELECT COALESCE(SUM(total_amount), 0) as total FROM orders";
         $stmt = $db->prepare($query);
         $stmt->execute();
-        $totalRevenue = $stmt->fetch(PDO::FETCH_ASSOC)['total'] or 0;
+        $totalRevenue = (float)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
         
         // Get pending orders
         $query = "SELECT COUNT(*) as total FROM orders WHERE status = 'pending'";
         $stmt = $db->prepare($query);
         $stmt->execute();
-        $pendingOrders = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+        $pendingOrders = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+        // Get total customers
+        $query = "SELECT COUNT(*) as total FROM customers";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $totalCustomers = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+        // Get today's orders
+        $query = "SELECT COUNT(*) as total FROM orders WHERE DATE(created_at) = CURDATE()";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $todayOrders = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+        // Get today's revenue
+        $query = "SELECT COALESCE(SUM(total_amount), 0) as total FROM orders WHERE DATE(created_at) = CURDATE()";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $todayRevenue = (float)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+        // Get order status breakdown
+        $query = "SELECT status, COUNT(*) as count FROM orders GROUP BY status";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $statusBreakdown = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $statusMap = [];
+        foreach ($statusBreakdown as $row) {
+            $statusMap[$row['status']] = (int)$row['count'];
+        }
+
+        // Get monthly revenue for the last 6 months
+        $query = "SELECT DATE_FORMAT(created_at, '%Y-%m') as month, 
+                         COALESCE(SUM(total_amount), 0) as revenue,
+                         COUNT(*) as orders
+                  FROM orders 
+                  WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+                  GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+                  ORDER BY month ASC";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $monthlyRevenue = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Get top selling products
+        $query = "SELECT p.id, p.name, p.price, p.image_url, 
+                         COALESCE(SUM(oi.quantity), 0) as total_sold,
+                         COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue
+                  FROM products p
+                  LEFT JOIN order_items oi ON p.id = oi.product_id
+                  WHERE p.is_active = 1
+                  GROUP BY p.id, p.name, p.price, p.image_url
+                  ORDER BY total_sold DESC
+                  LIMIT 5";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $topProducts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Get low stock products (stock <= 5)
+        $query = "SELECT id, name, stock_quantity FROM products 
+                  WHERE is_active = 1 AND stock_quantity <= 5 
+                  ORDER BY stock_quantity ASC LIMIT 5";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $lowStockProducts = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Get recent orders
-        $query = "SELECT id, order_number, total_amount, status, payment_status, created_at 
-                  FROM orders ORDER BY created_at DESC LIMIT 5";
+        // Get recent orders with customer name
+        $query = "SELECT o.id, o.order_number, o.total_amount, o.status, o.payment_status, 
+                         o.shipping_city, o.created_at, c.name as customer_name, c.phone as customer_phone
+                  FROM orders o
+                  LEFT JOIN customers c ON o.customer_id = c.id
+                  ORDER BY o.created_at DESC LIMIT 10";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $recentOrders = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -180,12 +245,19 @@ function getDashboardStats($db) {
         http_response_code(200);
         echo json_encode([
             "stats" => [
-                "totalProducts" => $totalProducts,
-                "totalOrders" => $totalOrders,
-                "totalRevenue" => $totalRevenue,
-                "pendingOrders" => $pendingOrders
+                "totalProducts"  => $totalProducts,
+                "totalOrders"    => $totalOrders,
+                "totalRevenue"   => $totalRevenue,
+                "pendingOrders"  => $pendingOrders,
+                "totalCustomers" => $totalCustomers,
+                "todayOrders"    => $todayOrders,
+                "todayRevenue"   => $todayRevenue,
+                "statusBreakdown" => $statusMap
             ],
-            "recentOrders" => $recentOrders
+            "monthlyRevenue"  => $monthlyRevenue,
+            "topProducts"     => $topProducts,
+            "lowStockProducts"=> $lowStockProducts,
+            "recentOrders"    => $recentOrders
         ]);
     } catch(PDOException $exception) {
         http_response_code(500);

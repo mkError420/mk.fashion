@@ -16,12 +16,14 @@ import {
   Check
 } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
+import { useFrontendData } from '../context/FrontendDataContext';
 import { BD_DISTRICTS, getThanasForDistrict } from '../data/bangladeshDistricts';
 import { CourierPartner } from '../types';
 
 export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { deliveryFees } = useFrontendData();
   const { 
     cart, 
     products,
@@ -89,9 +91,10 @@ export const CheckoutPage: React.FC = () => {
   // Delivery zone & calculations
   const isDhaka = district.toLowerCase().includes('dhaka');
   const deliveryZone = isDhaka ? 'Inside Dhaka' : 'Outside Dhaka';
-  const isFreeDelivery = subtotal >= 3000;
+  const freeShippingMin = deliveryFees.freeShippingMinimum || 3000;
+  const isFreeDelivery = subtotal >= freeShippingMin;
   
-  let baseDeliveryFee = isDhaka ? 60 : 120;
+  let baseDeliveryFee = isDhaka ? (deliveryFees.insideDhaka || 60) : (deliveryFees.outsideDhaka || 120);
   if (deliverySpeed === 'express' && isDhaka) {
     baseDeliveryFee = 100; // Same Day / 24h Express
   }

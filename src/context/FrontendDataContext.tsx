@@ -16,9 +16,21 @@ interface FrontendSettings {
   [key: string]: string;
 }
 
+interface DeliveryFees {
+  insideDhaka: number;
+  outsideDhaka: number;
+  freeShippingMinimum: number;
+}
+
 interface FrontendDataContextType {
   banners: Banner[];
   settings: FrontendSettings;
+  deliveryFees: DeliveryFees;
+  siteName: string;
+  contactPhone: string;
+  contactEmail: string;
+  whatsappNumber: string;
+  announcementText: string;
   isLoading: boolean;
   loadBanners: () => Promise<void>;
   loadSettings: () => Promise<void>;
@@ -33,6 +45,18 @@ export const FrontendDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [banners, setBanners] = useState<Banner[]>([]);
   const [settings, setSettings] = useState<FrontendSettings>({});
   const [isLoading, setIsLoading] = useState(false);
+
+  // Computed values from settings
+  const deliveryFees: DeliveryFees = {
+    insideDhaka: parseInt(settings['cod_charge_inside_dhaka'] || '60', 10),
+    outsideDhaka: parseInt(settings['cod_charge_outside_dhaka'] || '120', 10),
+    freeShippingMinimum: parseInt(settings['free_shipping_minimum'] || '3000', 10),
+  };
+  const siteName = settings['site_name'] || 'Aristo Fashion';
+  const contactPhone = settings['contact_phone'] || '09613-258248';
+  const contactEmail = settings['contact_email'] || 'support@aristofashionbd.com';
+  const whatsappNumber = settings['whatsapp_number'] || '01700000000';
+  const announcementText = settings['announcement_text'] || `Cash on Delivery Available Nationwide • 100% Cotton`;
 
   const loadBanners = async () => {
     setIsLoading(true);
@@ -96,6 +120,12 @@ export const FrontendDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
       value={{
         banners,
         settings,
+        deliveryFees,
+        siteName,
+        contactPhone,
+        contactEmail,
+        whatsappNumber,
+        announcementText,
         isLoading,
         loadBanners,
         loadSettings,
