@@ -1,6 +1,21 @@
 Options -Indexes
+
 # Serve uploaded files directly; block PHP execution inside uploads/
 <FilesMatch "\.php$">
     Order Allow,Deny
     Deny from all
 </FilesMatch>
+
+# Correct MIME types for video streaming
+<IfModule mod_mime.c>
+    AddType video/mp4  .mp4 .m4v
+    AddType video/webm .webm
+    AddType video/ogg  .ogg .ogv
+    AddType video/quicktime .mov
+</IfModule>
+
+# Allow range requests for video seeking
+<IfModule mod_headers.c>
+    Header set Accept-Ranges bytes
+    Header set Access-Control-Allow-Origin "*"
+</IfModule>

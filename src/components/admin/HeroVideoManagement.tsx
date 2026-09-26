@@ -227,6 +227,13 @@ export const HeroVideoManagement: React.FC = () => {
 
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+
+    // Validate required video URL
+    if (!config.videoUrl || !config.videoUrl.trim()) {
+      setSaveMessage({ type: 'error', text: 'Please add a Primary Video URL or upload a video file before saving.' });
+      return;
+    }
+
     setIsSaving(true);
     setSaveMessage(null);
 
@@ -322,20 +329,19 @@ export const HeroVideoManagement: React.FC = () => {
       if (success) {
         setSaveMessage({ 
           type: 'success', 
-          text: 'Hero Video settings updated successfully and synced to homepage!' 
+          text: '✓ Hero Video saved to database and live on homepage!' 
         });
       } else {
-        // Even if server failed, localStorage is updated
         setSaveMessage({ 
-          type: 'success', 
-          text: 'Saved locally for preview. Backend synced.' 
+          type: 'error', 
+          text: 'Saved locally, but database save failed. Make sure you are logged in.' 
         });
       }
-      setTimeout(() => setSaveMessage(null), 5000);
-    } catch (err) {
+      setTimeout(() => setSaveMessage(null), 6000);
+    } catch (err: any) {
       setSaveMessage({ 
         type: 'error', 
-        text: 'Failed to sync with backend server, but saved locally.' 
+        text: `Save failed: ${err?.message || 'Network error. Please try again.'}` 
       });
     } finally {
       setIsSaving(false);

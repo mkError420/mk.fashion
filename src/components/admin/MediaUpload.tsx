@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback } from 'react';
-import { Upload, X, Link, ImageIcon, Video, Loader2, CheckCircle2 } from 'lucide-react';
+import { Upload, X, Link, ImageIcon, Video, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://efashionbd.rf.gd/backend/api';
 
@@ -24,13 +24,16 @@ interface MediaUploadProps {
 
 const ACCEPT_MAP: Record<MediaType, string> = {
   image: 'image/jpeg,image/png,image/gif,image/webp,image/avif',
-  video: 'video/mp4,video/webm,video/ogg,video/quicktime',
-  any:   'image/jpeg,image/png,image/gif,image/webp,image/avif,video/mp4,video/webm,video/ogg,video/quicktime',
+  video: 'video/mp4,video/webm,video/ogg,video/quicktime,video/x-m4v',
+  any:   'image/jpeg,image/png,image/gif,image/webp,image/avif,video/mp4,video/webm,video/ogg,video/quicktime,video/x-m4v',
 };
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
 /**
  * Reusable media upload field.
  * Supports drag-and-drop, click-to-browse, and manual URL entry.
+ * Video files up to 50 MB are supported.
  */
 export const MediaUpload: React.FC<MediaUploadProps> = ({
   value,
@@ -44,6 +47,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const inputRef      = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError]         = useState('');
   const [success, setSuccess]     = useState(false);
   const [mode, setMode]           = useState<'upload' | 'url'>('upload');
@@ -52,29 +56,63 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const uploadFile = useCallback(async (file: File) => {
     setError('');
     setSuccess(false);
+    setUploadProgress(0);
+
+    // Client-side file size guard (50 MB)
+    if (file.size > MAX_FILE_SIZE) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+      setError(`File too large (${sizeMB} MB). Maximum allowed size is 50 MB.`);
+      return;
+    }
+
     setUploading(true);
 
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/upload.php`, {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
+      // Use XMLHttpRequest so we can track upload progress for large videos
+      const result = await new Promise<{ success: boolean; url?: string; message?: string }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${API_BASE_URL}/upload.php`, true);
+        xhr.withCredentials = true;
+
+        // Track upload progress
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            setUploadProgress(pct);
+          }
+        });
+
+        xhr.onload = () => {
+          try {
+            const json = JSON.parse(xhr.responseText);
+            resolve(json);
+          } catch {
+            reject(new Error('Invalid server response'));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error('Network error — check your connection'));
+        xhr.ontimeout = () => reject(new Error('Upload timed out. Try a smaller file or check your connection.'));
+        xhr.timeout = 5 * 60 * 1000; // 5 minute timeout for large files
+
+        xhr.send(formData);
       });
-      const json = await res.json();
-      if (json.success && json.url) {
-        onChange(json.url);
+
+      if (result.success && result.url) {
+        onChange(result.url);
         setSuccess(true);
-        setTimeout(() => setSuccess(false), 3000);
+        setTimeout(() => setSuccess(false), 4000);
       } else {
-        setError(json.message || 'Upload failed');
+        setError(result.message || 'Upload failed. Please try again.');
       }
-    } catch {
-      setError('Network error — check your connection');
+    } catch (err: any) {
+      setError(err?.message || 'Network error — check your connection');
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   }, [onChange]);
 
@@ -95,8 +133,14 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   };
 
   /* ── helpers ────────────────────────────────────────────── */
-  const isVideo    = accept === 'video' || (accept === 'any' && value && /\.(mp4|webm|ogg|mov)(\?|$)/i.test(value));
+  const isVideo    = accept === 'video' || (accept === 'any' && value && /\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(value));
   const hasPreview = !!value;
+
+  const getSizeLabel = () => {
+    if (accept === 'video') return 'MP4, WebM, OGG, MOV — max 50 MB';
+    if (accept === 'image') return 'JPG, PNG, WebP, GIF, AVIF — max 50 MB';
+    return 'Images or Videos — max 50 MB';
+  };
 
   return (
     <div className={`space-y-2 ${className}`}>
@@ -136,7 +180,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
           onDrop={onDrop}
           className={`relative flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl cursor-pointer transition-all min-h-[120px] select-none
             ${dragging   ? 'border-gray-900 bg-gray-50 scale-[1.01]' : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50'}
-            ${uploading  ? 'pointer-events-none opacity-70' : ''}
+            ${uploading  ? 'pointer-events-none opacity-80' : ''}
           `}
         >
           <input
@@ -148,9 +192,24 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
           />
 
           {uploading ? (
-            <div className="flex flex-col items-center gap-2 p-4">
-              <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
-              <p className="text-sm text-gray-500 font-medium">Uploading…</p>
+            <div className="flex flex-col items-center gap-3 p-5 w-full">
+              <Loader2 className="w-7 h-7 text-gray-400 animate-spin" />
+              <p className="text-sm text-gray-600 font-semibold">
+                Uploading{accept === 'video' ? ' video' : ''}…
+              </p>
+              {/* Progress bar */}
+              <div className="w-full max-w-xs bg-gray-100 rounded-full h-2">
+                <div
+                  className="bg-gray-900 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-400">{uploadProgress}% uploaded</p>
+              {accept === 'video' && (
+                <p className="text-[11px] text-gray-400 text-center">
+                  Large videos may take a moment. Please don't close this tab.
+                </p>
+              )}
             </div>
           ) : success ? (
             <div className="flex flex-col items-center gap-2 p-4">
@@ -167,11 +226,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
                   {dragging ? 'Drop file here' : 'Click or drag & drop to upload'}
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {accept === 'video'
-                    ? 'MP4, WebM, OGG — max 20 MB'
-                    : accept === 'image'
-                    ? 'JPG, PNG, WebP, GIF — max 20 MB'
-                    : 'Images or Videos — max 20 MB'}
+                  {getSizeLabel()}
                 </p>
               </div>
             </div>
@@ -194,7 +249,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       {/* ── Error ────────────────────────────────────────────── */}
       {error && (
         <p className="text-xs text-red-600 font-medium flex items-center gap-1">
-          <span>⚠</span> {error}
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {error}
         </p>
       )}
 
