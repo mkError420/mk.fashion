@@ -256,29 +256,17 @@ export const ShopPage: React.FC = () => {
   const [inStockOnly, setInStockOnly] = useState<boolean>(searchParams.get('inStock') === 'true');
   const [onSaleOnly, setOnSaleOnly] = useState<boolean>(searchParams.get('onSale') === 'true');
 
-  // UI state
-  const [expandedCategories, setExpandedCategories] = useState<{ [key: string]: boolean }>({
-    men: true,
-    women: true,
-    'blucheez-black': true,
-    belwari: true,
-    summer: true
+  // UI state: Subcategories are primarily hidden (null).
+  // When a user clicks on a category, only that category opens its floating subcategories, and any previously open category automatically closes.
+  const [openCategoryAccordion, setOpenCategoryAccordion] = useState<string | null>(() => {
+    const initialSub = searchParams.get('sub');
+    if (initialSub && selectedCategory !== 'all') {
+      return selectedCategory;
+    }
+    return null; // Primarily hidden by default
   });
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [gridColumns, setGridColumns] = useState<2 | 3 | 4>(4);
-
-  // Keep accordion state updated for all categories
-  useEffect(() => {
-    setExpandedCategories(prev => {
-      const next = { ...prev };
-      shopCategories.forEach(cat => {
-        if (next[cat.id] === undefined) {
-          next[cat.id] = true;
-        }
-      });
-      return next;
-    });
-  }, [shopCategories]);
 
   // Sync state with URL params
   useEffect(() => {
@@ -296,18 +284,22 @@ export const ShopPage: React.FC = () => {
   }, [searchParams, routeCategory]);
 
   const toggleCategoryAccordion = (catId: string) => {
-    setExpandedCategories(prev => ({
-      ...prev,
-      [catId]: !prev[catId]
-    }));
+    // If clicked category is already open, collapse it; otherwise open it and close any previously open category
+    setOpenCategoryAccordion(prev => (prev === catId ? null : catId));
   };
 
-  const handleSelectCategory = (catId: string) => {
+  const handleSelectCategory = (catId: string, toggleSubcategories: boolean = true) => {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.delete('sub');
     if (catId === 'all') {
+      setOpenCategoryAccordion(null);
       navigate('/shop');
     } else {
+      if (toggleSubcategories) {
+        setOpenCategoryAccordion(prev => (prev === catId ? null : catId));
+      } else {
+        setOpenCategoryAccordion(catId);
+      }
       navigate(`/shop/${catId}`);
     }
   };
@@ -619,7 +611,7 @@ export const ShopPage: React.FC = () => {
         <div className="space-y-1">
           {shopCategories.map((cat) => {
             const isCatActive = selectedCategory === cat.id;
-            const isExpanded = expandedCategories[cat.id] ?? false;
+            const isOpen = openCategoryAccordion === cat.id;
             const count = getCategoryCount(cat.id);
 
             return (
@@ -627,11 +619,19 @@ export const ShopPage: React.FC = () => {
                 <div className="flex items-center justify-between group">
                   <button
                     type="button"
-                    onClick={() => handleSelectCategory(cat.id)}
-                    className={`flex-1 text-left py-1.5 px-2 text-xs font-bold flex items-center justify-between transition-colors cursor-pointer rounded-none ${
+                    onClick={() => {
+                      if (cat.subcategories.length > 0) {
+                        handleSelectCategory(cat.id, true);
+                      } else {
+                        handleSelectCategory(cat.id, false);
+                      }
+                    }}
+                    className={`flex-1 text-left py-2 px-2.5 text-xs font-bold flex items-center justify-between transition-colors cursor-pointer rounded-none ${
                       isCatActive 
                         ? 'bg-black text-white font-extrabold' 
-                        : 'text-neutral-800 hover:bg-neutral-100'
+                        : isOpen
+                          ? 'bg-neutral-100 text-neutral-900 border-l-2 border-black pl-2'
+                          : 'text-neutral-800 hover:bg-neutral-100'
                     }`}
                   >
                     <div className="flex items-center space-x-1.5 truncate">
@@ -652,47 +652,59 @@ export const ShopPage: React.FC = () => {
                   {cat.subcategories.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => toggleCategoryAccordion(cat.id)}
-                      className={`p-1.5 hover:text-black cursor-pointer transition-transform ${
-                        isCatActive ? 'text-neutral-800' : 'text-neutral-400'
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleCategoryAccordion(cat.id);
+                      }}
+                      className={`p-2 hover:text-black cursor-pointer transition-colors ${
+                        isOpen ? 'text-black bg-neutral-100' : isCatActive ? 'text-neutral-800' : 'text-neutral-400'
                       }`}
-                      aria-label="Toggle subcategories"
+                      aria-label={`Toggle ${cat.name} subcategories`}
                     >
-                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
                     </button>
                   )}
                 </div>
 
-                {/* Subcategory List with indentation */}
-                {cat.subcategories.length > 0 && isExpanded && (
-                  <div className="pl-3 pr-1 py-1 space-y-0.5 border-l-2 border-neutral-200 ml-2 mt-1">
-                    {cat.subcategories.map((sub) => {
-                      const isSubActive = isCatActive && selectedSubcategory === sub;
-                      const subCount = getSubcategoryCount(cat.id, sub);
+                {/* Floating Subcategories Container */}
+                {cat.subcategories.length > 0 && isOpen && (
+                  <div className="my-2 mx-1 p-2 bg-neutral-50/95 border border-neutral-200 shadow-md shadow-neutral-900/5 rounded-xs space-y-1 transition-all duration-200 animate-in fade-in slide-in-from-top-1.5">
+                    <div className="flex items-center justify-between pb-1.5 mb-1 border-b border-neutral-200 text-[10px] uppercase font-bold tracking-wider text-neutral-500 px-1">
+                      <span>{cat.name} Subcategories</span>
+                      <span className="font-mono text-neutral-400 font-normal">
+                        {cat.subcategories.length} items
+                      </span>
+                    </div>
 
-                      return (
-                        <button
-                          key={sub}
-                          type="button"
-                          onClick={() => handleSelectSubcategory(cat.id, sub)}
-                          className={`w-full text-left py-1 px-2 text-[11px] flex items-center justify-between transition-all cursor-pointer rounded-none ${
-                            isSubActive
-                              ? 'bg-neutral-900 text-white font-bold'
-                              : 'text-neutral-600 hover:text-black hover:bg-neutral-50'
-                          }`}
-                        >
-                          <span className="truncate">{sub}</span>
-                          <div className="flex items-center space-x-1.5 flex-shrink-0">
-                            {subCount > 0 && (
-                              <span className={`text-[9px] font-mono ${isSubActive ? 'text-neutral-300' : 'text-neutral-400'}`}>
-                                ({subCount})
-                              </span>
-                            )}
-                            {isSubActive && <Check className="w-3 h-3 text-white flex-shrink-0" />}
-                          </div>
-                        </button>
-                      );
-                    })}
+                    <div className="max-h-64 overflow-y-auto pr-1 space-y-0.5 scrollbar-thin">
+                      {cat.subcategories.map((sub) => {
+                        const isSubActive = isCatActive && selectedSubcategory === sub;
+                        const subCount = getSubcategoryCount(cat.id, sub);
+
+                        return (
+                          <button
+                            key={sub}
+                            type="button"
+                            onClick={() => handleSelectSubcategory(cat.id, sub)}
+                            className={`w-full text-left py-1.5 px-2.5 text-[11px] flex items-center justify-between transition-all cursor-pointer rounded-xs ${
+                              isSubActive
+                                ? 'bg-black text-white font-bold shadow-xs'
+                                : 'text-neutral-700 hover:text-black hover:bg-white bg-transparent hover:shadow-2xs'
+                            }`}
+                          >
+                            <span className="truncate">{sub}</span>
+                            <div className="flex items-center space-x-1.5 flex-shrink-0 ml-2">
+                              {subCount > 0 && (
+                                <span className={`text-[9px] font-mono ${isSubActive ? 'text-neutral-300' : 'text-neutral-400'}`}>
+                                  ({subCount})
+                                </span>
+                              )}
+                              {isSubActive && <Check className="w-3 h-3 text-white flex-shrink-0" />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
