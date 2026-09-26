@@ -19,6 +19,7 @@ import {
   Filter
 } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
+import { useFrontendData } from '../context/FrontendDataContext';
 import { ProductCard } from '../components/ProductCard';
 import { Product } from '../types';
 
@@ -30,7 +31,7 @@ interface SidebarCategory {
   subcategories: string[];
 }
 
-const SHOP_CATEGORIES: SidebarCategory[] = [
+const INITIAL_SHOP_CATEGORIES: SidebarCategory[] = [
   {
     id: 'all',
     name: 'All Collections',
@@ -128,6 +129,36 @@ const SHOP_CATEGORIES: SidebarCategory[] = [
   }
 ];
 
+const KNOWN_CATEGORY_META: Record<string, { bengaliName?: string; badge?: string; defaultSubcategories?: string[] }> = {
+  'men': {
+    bengaliName: 'পুরুষদের পোশাক',
+    badge: 'Trending',
+  },
+  'women': {
+    bengaliName: 'নারীদের পোশাক',
+    badge: 'Belwari',
+  },
+  'blucheez-black': {
+    bengaliName: 'ব্ল্যাক সোসাইটি',
+    badge: 'Luxury',
+  },
+  'belwari': {
+    bengaliName: 'বেলওয়ারী ঐতিহ্য',
+    badge: 'Artisan',
+  },
+  'summer': {
+    bengaliName: 'সামার কালেকশন',
+    badge: 'New',
+  },
+  'accessories': {
+    bengaliName: 'এক্সেসরিজ',
+  },
+  'new-in': {
+    bengaliName: 'নতুন আগমন',
+    badge: 'New Arrival',
+  }
+};
+
 const FABRIC_FILTERS = [
   'Cotton',
   'Silk',
@@ -156,6 +187,55 @@ export const ShopPage: React.FC = () => {
   const { category: routeCategory } = useParams<{ category?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const { products } = useShop();
+  const { categories: dynamicCategories, loadCategories } = useFrontendData();
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  // Dynamically constructed categories from Database + Fallbacks
+  const shopCategories: SidebarCategory[] = useMemo(() => {
+    if (dynamicCategories && dynamicCategories.length > 0) {
+      // Find top-level / parent categories
+      const parents = dynamicCategories.filter(c => c.parent_id === null || c.parent_id === 0);
+      const parentList = parents.length > 0 ? parents : dynamicCategories;
+
+      const built: SidebarCategory[] = [
+        {
+          id: 'all',
+          name: 'All Collections',
+          bengaliName: 'সকল কালেকশন',
+          subcategories: []
+        }
+      ];
+
+      parentList.forEach(parent => {
+        const pid = parent.id;
+        const slug = (parent.slug || parent.name).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        
+        // Find subcategories belonging to this parent category
+        const childCats = dynamicCategories.filter(
+          c => (c.parent_id === pid || c.parent_name?.toLowerCase() === parent.name.toLowerCase() || c.parent_slug?.toLowerCase() === slug) && c.id !== pid
+        );
+
+        const subNames = Array.from(new Set(childCats.map(c => c.name.trim()).filter(Boolean)));
+        const knownMeta = KNOWN_CATEGORY_META[slug] || KNOWN_CATEGORY_META[parent.name.toLowerCase()] || {};
+        const fallbackSubs = INITIAL_SHOP_CATEGORIES.find(c => c.id === slug || c.name.toLowerCase() === parent.name.toLowerCase())?.subcategories || [];
+
+        built.push({
+          id: slug,
+          name: parent.name,
+          bengaliName: knownMeta.bengaliName || parent.description || parent.name,
+          badge: knownMeta.badge || (parent.description?.includes('New') ? 'New' : undefined),
+          subcategories: subNames.length > 0 ? subNames : fallbackSubs
+        });
+      });
+
+      return built;
+    }
+
+    return INITIAL_SHOP_CATEGORIES;
+  }, [dynamicCategories]);
 
   // Active Filters from URL / State
   const selectedCategory = routeCategory || searchParams.get('category') || 'all';
@@ -186,6 +266,19 @@ export const ShopPage: React.FC = () => {
   });
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [gridColumns, setGridColumns] = useState<2 | 3 | 4>(4);
+
+  // Keep accordion state updated for all categories
+  useEffect(() => {
+    setExpandedCategories(prev => {
+      const next = { ...prev };
+      shopCategories.forEach(cat => {
+        if (next[cat.id] === undefined) {
+          next[cat.id] = true;
+        }
+      });
+      return next;
+    });
+  }, [shopCategories]);
 
   // Sync state with URL params
   useEffect(() => {
@@ -323,9 +416,28 @@ export const ShopPage: React.FC = () => {
     return products.filter((product) => {
       // Category Match
       if (selectedCategory !== 'all') {
-        if (selectedCategory === 'men' && product.gender !== 'men' && product.category !== 'men') return false;
-        if (selectedCategory === 'women' && product.gender !== 'women' && product.category !== 'women') return false;
-        if (selectedCategory !== 'men' && selectedCategory !== 'women' && product.category !== selectedCategory) return false;
+        const catLower = selectedCategory.toLowerCase();
+        if (catLower === 'men') {
+          if (product.gender !== 'men' && product.category !== 'men') return false;
+        } else if (catLower === 'women') {
+          if (product.gender !== 'women' && product.category !== 'women') return false;
+        } else {
+          const catObj = shopCategories.find(c => c.id === selectedCategory || c.name.toLowerCase() === catLower);
+          const pCat = (product.category || '').toLowerCase();
+          const matchDirect = pCat === catLower;
+          const matchName = catObj && pCat === catObj.name.toLowerCase();
+          const matchBadge = catObj && product.badge?.toLowerCase().includes(catObj.name.toLowerCase());
+
+          if (!matchDirect && !matchName && !matchBadge) {
+            // Also check if product subcategory belongs to this category
+            if (catObj && catObj.subcategories.length > 0 && product.subcategory) {
+              const inSub = catObj.subcategories.some(s => s.toLowerCase() === product.subcategory?.toLowerCase());
+              if (!inSub) return false;
+            } else {
+              return false;
+            }
+          }
+        }
       }
 
       // Subcategory Match
@@ -333,7 +445,8 @@ export const ShopPage: React.FC = () => {
         const sub = selectedSubcategory.toLowerCase();
         const pSub = (product.subcategory || '').toLowerCase();
         const pName = product.name.toLowerCase();
-        if (!pSub.includes(sub) && !pName.includes(sub)) {
+        const pCat = (product.category || '').toLowerCase();
+        if (!pSub.includes(sub) && !pName.includes(sub) && !pCat.includes(sub)) {
           return false;
         }
       }
@@ -395,6 +508,7 @@ export const ShopPage: React.FC = () => {
     });
   }, [
     products, 
+    shopCategories,
     selectedCategory, 
     selectedSubcategory, 
     queryParam, 
@@ -410,10 +524,44 @@ export const ShopPage: React.FC = () => {
   // Total count per category helper
   const getCategoryCount = (catId: string) => {
     if (catId === 'all') return products.length;
+    const catLower = catId.toLowerCase();
+    const catObj = shopCategories.find(c => c.id === catId || c.name.toLowerCase() === catLower);
+
     return products.filter(p => {
-      if (catId === 'men') return p.gender === 'men' || p.category === 'men';
-      if (catId === 'women') return p.gender === 'women' || p.category === 'women';
-      return p.category === catId;
+      if (catLower === 'men') return p.gender === 'men' || p.category === 'men';
+      if (catLower === 'women') return p.gender === 'women' || p.category === 'women';
+      
+      const pCat = (p.category || '').toLowerCase();
+      if (pCat === catLower || (catObj && pCat === catObj.name.toLowerCase())) return true;
+      if (catObj && catObj.subcategories.length > 0 && p.subcategory) {
+        return catObj.subcategories.some(s => s.toLowerCase() === p.subcategory?.toLowerCase());
+      }
+      return false;
+    }).length;
+  };
+
+  // Subcategory count helper
+  const getSubcategoryCount = (catId: string, subName: string) => {
+    const sub = subName.toLowerCase();
+    const catLower = catId.toLowerCase();
+    const catObj = shopCategories.find(c => c.id === catId || c.name.toLowerCase() === catLower);
+
+    return products.filter(p => {
+      // Category scope check
+      if (catId !== 'all') {
+        if (catLower === 'men' && !(p.gender === 'men' || p.category === 'men')) return false;
+        if (catLower === 'women' && !(p.gender === 'women' || p.category === 'women')) return false;
+        if (catLower !== 'men' && catLower !== 'women') {
+          const pCat = (p.category || '').toLowerCase();
+          const matchCat = pCat === catLower || (catObj && pCat === catObj.name.toLowerCase());
+          if (!matchCat) return false;
+        }
+      }
+
+      // Subcategory check
+      const pSub = (p.subcategory || '').toLowerCase();
+      const pName = p.name.toLowerCase();
+      return pSub.includes(sub) || pName.includes(sub);
     }).length;
   };
 
@@ -429,7 +577,15 @@ export const ShopPage: React.FC = () => {
     (inStockOnly ? 1 : 0) +
     (onSaleOnly ? 1 : 0);
 
-  const currentCategoryObj = SHOP_CATEGORIES.find(c => c.id === selectedCategory) || SHOP_CATEGORIES[0];
+  const currentCategoryObj = useMemo(() => {
+    const found = shopCategories.find(c => c.id === selectedCategory || c.name.toLowerCase() === selectedCategory.toLowerCase());
+    return found || {
+      id: selectedCategory,
+      name: selectedCategory === 'all' ? 'All Collections' : selectedCategory.toUpperCase(),
+      bengaliName: '',
+      subcategories: []
+    };
+  }, [shopCategories, selectedCategory]);
 
   // Render Sidebar Content (shared between Desktop & Mobile drawer)
   const renderSidebarFilters = () => (
@@ -442,19 +598,26 @@ export const ShopPage: React.FC = () => {
             <Filter className="w-3.5 h-3.5 mr-1.5 text-black" />
             Categories & Subcategories
           </h3>
-          {selectedCategory !== 'all' && (
-            <button
-              type="button"
-              onClick={() => handleSelectCategory('all')}
-              className="text-[11px] text-neutral-500 hover:text-black underline cursor-pointer"
-            >
-              Reset
-            </button>
-          )}
+          <div className="flex items-center space-x-2">
+            {dynamicCategories.length > 0 && (
+              <span className="text-[10px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded-none font-mono">
+                Live
+              </span>
+            )}
+            {selectedCategory !== 'all' && (
+              <button
+                type="button"
+                onClick={() => handleSelectCategory('all')}
+                className="text-[11px] text-neutral-500 hover:text-black underline cursor-pointer"
+              >
+                Reset
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="space-y-1">
-          {SHOP_CATEGORIES.map((cat) => {
+          {shopCategories.map((cat) => {
             const isCatActive = selectedCategory === cat.id;
             const isExpanded = expandedCategories[cat.id] ?? false;
             const count = getCategoryCount(cat.id);
@@ -471,17 +634,17 @@ export const ShopPage: React.FC = () => {
                         : 'text-neutral-800 hover:bg-neutral-100'
                     }`}
                   >
-                    <div className="flex items-center space-x-1.5">
-                      <span>{cat.name}</span>
+                    <div className="flex items-center space-x-1.5 truncate">
+                      <span className="truncate">{cat.name}</span>
                       {cat.badge && (
-                        <span className={`text-[9px] px-1.5 py-0.2 rounded-none font-bold uppercase ${
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded-none font-bold uppercase flex-shrink-0 ${
                           isCatActive ? 'bg-white text-black' : 'bg-neutral-200 text-neutral-800'
                         }`}>
                           {cat.badge}
                         </span>
                       )}
                     </div>
-                    <span className={`text-[10px] font-mono ${isCatActive ? 'text-neutral-300' : 'text-neutral-400'}`}>
+                    <span className={`text-[10px] font-mono ml-1 flex-shrink-0 ${isCatActive ? 'text-neutral-300' : 'text-neutral-400'}`}>
                       ({count})
                     </span>
                   </button>
@@ -505,6 +668,8 @@ export const ShopPage: React.FC = () => {
                   <div className="pl-3 pr-1 py-1 space-y-0.5 border-l-2 border-neutral-200 ml-2 mt-1">
                     {cat.subcategories.map((sub) => {
                       const isSubActive = isCatActive && selectedSubcategory === sub;
+                      const subCount = getSubcategoryCount(cat.id, sub);
+
                       return (
                         <button
                           key={sub}
@@ -517,7 +682,14 @@ export const ShopPage: React.FC = () => {
                           }`}
                         >
                           <span className="truncate">{sub}</span>
-                          {isSubActive && <Check className="w-3 h-3 text-white flex-shrink-0" />}
+                          <div className="flex items-center space-x-1.5 flex-shrink-0">
+                            {subCount > 0 && (
+                              <span className={`text-[9px] font-mono ${isSubActive ? 'text-neutral-300' : 'text-neutral-400'}`}>
+                                ({subCount})
+                              </span>
+                            )}
+                            {isSubActive && <Check className="w-3 h-3 text-white flex-shrink-0" />}
+                          </div>
                         </button>
                       );
                     })}

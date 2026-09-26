@@ -22,10 +22,21 @@ interface DeliveryFees {
   freeShippingMinimum: number;
 }
 
+export interface FrontendCategory {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  parent_id: number | null;
+  parent_name?: string | null;
+  parent_slug?: string | null;
+}
+
 interface FrontendDataContextType {
   banners: Banner[];
   settings: FrontendSettings;
   deliveryFees: DeliveryFees;
+  categories: FrontendCategory[];
   siteName: string;
   contactPhone: string;
   contactEmail: string;
@@ -34,6 +45,7 @@ interface FrontendDataContextType {
   isLoading: boolean;
   loadBanners: () => Promise<void>;
   loadSettings: () => Promise<void>;
+  loadCategories: () => Promise<void>;
   validatePromocode: (code: string, orderTotal: number) => Promise<any>;
 }
 
@@ -44,6 +56,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://efashionbd.rf.gd/b
 export const FrontendDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [settings, setSettings] = useState<FrontendSettings>({});
+  const [categories, setCategories] = useState<FrontendCategory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Computed values from settings
@@ -92,6 +105,35 @@ export const FrontendDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
+  const loadCategories = async () => {
+    try {
+      // First try frontend_categories.php
+      const response = await fetch(`${API_BASE_URL}/frontend_categories.php`, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setCategories(data);
+          return;
+        }
+      }
+      
+      // Fallback to categories.php
+      const fallbackRes = await fetch(`${API_BASE_URL}/categories.php`, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (fallbackRes.ok) {
+        const fallbackData = await fallbackRes.json();
+        if (Array.isArray(fallbackData)) {
+          setCategories(fallbackData);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load categories:', err);
+    }
+  };
+
   const validatePromocode = async (code: string, orderTotal: number) => {
     try {
       const response = await fetch(`${API_BASE_URL}/validate_promocode.php`, {
@@ -113,6 +155,7 @@ export const FrontendDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
   useEffect(() => {
     loadBanners();
     loadSettings();
+    loadCategories();
   }, []);
 
   return (
@@ -121,6 +164,7 @@ export const FrontendDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
         banners,
         settings,
         deliveryFees,
+        categories,
         siteName,
         contactPhone,
         contactEmail,
@@ -129,6 +173,7 @@ export const FrontendDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
         isLoading,
         loadBanners,
         loadSettings,
+        loadCategories,
         validatePromocode,
       }}
     >

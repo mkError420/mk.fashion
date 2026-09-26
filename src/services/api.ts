@@ -8,6 +8,8 @@ export interface BackendCategory {
   slug: string;
   description: string | null;
   parent_id: number | null;
+  parent_name?: string | null;
+  parent_slug?: string | null;
 }
 
 export interface BackendProductImage {
@@ -117,6 +119,12 @@ async function apiRequest<T>(
 
 // Categories API
 export const fetchCategories = async (): Promise<BackendCategory[]> => {
+  try {
+    const res = await apiRequest<BackendCategory[]>('/frontend_categories.php');
+    if (Array.isArray(res) && res.length > 0) return res;
+  } catch (err) {
+    console.warn('frontend_categories.php fetch failed, trying categories.php:', err);
+  }
   return apiRequest<BackendCategory[]>('/categories.php');
 };
 

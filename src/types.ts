@@ -14,7 +14,8 @@ export type CategoryType =
   | 'polos' 
   | 'sarees' 
   | 'kurtis' 
-  | 'waistcoats';
+  | 'waistcoats'
+  | (string & {});
 
 export interface Product {
   id: string;
