@@ -50,10 +50,10 @@ export const Header: React.FC = () => {
   const cartTotalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
   const cartSubtotal = cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
 
-  // Track scroll position to compact sticky header
+  // Track scroll position for subtle header elevation shadow
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+      setIsScrolled(window.scrollY > 35);
     };
     handleScroll();
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -150,11 +150,10 @@ export const Header: React.FC = () => {
   const activeMegaCategory = navCategories.find(c => c.id === hoveredCategory);
 
   return (
-    <header className={`sticky top-0 z-50 bg-white border-b border-neutral-200 w-full transition-all duration-200 ${isScrolled ? 'shadow-md' : 'shadow-xs'}`}>
-      
-      {/* Top Announcement Bar - smoothly collapses when scrolling to give more screen space */}
-      <div className={`bg-black text-neutral-300 text-[10px] sm:text-xs px-3 sm:px-4 border-b border-neutral-800 w-full overflow-hidden transition-all duration-300 ${isScrolled ? 'max-h-0 py-0 opacity-0 pointer-events-none border-b-0' : 'max-h-12 py-1.5 sm:py-2 opacity-100'}`}>
-        <div className="w-full max-w-7xl md:max-w-none px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 mx-auto flex flex-nowrap sm:flex-wrap items-center justify-between gap-1 sm:gap-2">
+    <>
+      {/* Top Announcement Bar - in natural flow, scrolls away naturally with page */}
+      <div className="bg-black text-neutral-300 text-[10px] sm:text-xs px-3 sm:px-4 border-b border-neutral-800 w-full">
+        <div className="w-full max-w-7xl md:max-w-none px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 mx-auto flex flex-nowrap sm:flex-wrap items-center justify-between gap-1 sm:gap-2 py-1.5 sm:py-2">
           <div className="flex items-center space-x-2 text-[10px] sm:text-xs truncate min-w-0 flex-1">
             <span className="font-semibold tracking-wide text-white uppercase flex items-center truncate">
               <span className="truncate">{announcementText}</span>
@@ -189,41 +188,43 @@ export const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Header Bar */}
-      <div className="w-full max-w-7xl md:max-w-none px-3 sm:px-6 md:px-8 lg:px-12 xl:px-16 mx-auto">
-        <div className={`flex items-center justify-between transition-all duration-200 ${isScrolled ? 'h-14 sm:h-16' : 'h-16 sm:h-20'} gap-2 sm:gap-4`}>
-          
-          {/* Mobile Menu Trigger & Logo Group */}
-          <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
-            {/* Mobile Menu Trigger */}
-            <button 
-              id="mobile-menu-toggle"
-              type="button"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-1.5 -ml-1 text-neutral-800 hover:text-black rounded-lg hover:bg-neutral-100 transition-colors"
-              aria-label="Toggle Navigation Menu"
-            >
-              {isMobileMenuOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6" />}
-            </button>
+      {/* Main Sticky Navbar - Fixed, stable height with smooth elevation shadow on scroll */}
+      <header className={`sticky top-0 z-50 bg-white border-b border-neutral-200 w-full transition-shadow duration-200 ${isScrolled ? 'shadow-md' : 'shadow-xs'}`}>
+        {/* Main Header Bar */}
+        <div className="w-full max-w-7xl md:max-w-none px-3 sm:px-6 md:px-8 lg:px-12 xl:px-16 mx-auto">
+          <div className="flex items-center justify-between h-16 sm:h-20 gap-2 sm:gap-4">
+            
+            {/* Mobile Menu Trigger & Logo Group */}
+            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+              {/* Mobile Menu Trigger */}
+              <button 
+                id="mobile-menu-toggle"
+                type="button"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="lg:hidden p-1.5 -ml-1 text-neutral-800 hover:text-black rounded-lg hover:bg-neutral-100 transition-colors"
+                aria-label="Toggle Navigation Menu"
+              >
+                {isMobileMenuOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6" />}
+              </button>
 
-            {/* Brand Identity: BLUCHEEZ */}
-            <Link 
-              to="/"
-              className="flex flex-col flex-shrink-0 select-none group" 
-            >
-              <div className="flex items-center space-x-1">
-                <span className={`font-extrabold tracking-widest text-black font-sans uppercase transition-all duration-200 ${isScrolled ? 'text-lg sm:text-xl md:text-2xl' : 'text-xl sm:text-2xl md:text-3xl'}`}>
-                  BLUCHEEZ
-                </span>
-                <span className="text-[9px] sm:text-[10px] uppercase tracking-widest px-1 py-0.5 rounded bg-black text-white font-bold">
-                  .FASHION
-                </span>
-              </div>
-              <p className={`text-[8px] sm:text-[9px] text-neutral-500 uppercase tracking-widest font-semibold hidden sm:block transition-all duration-200 ${isScrolled ? 'opacity-0 h-0 overflow-hidden' : 'opacity-100'}`}>
-                Modern Lifestyle & Heritage Atelier
-              </p>
-            </Link>
-          </div>
+              {/* Brand Identity: BLUCHEEZ */}
+              <Link 
+                to="/"
+                className="flex flex-col flex-shrink-0 select-none group" 
+              >
+                <div className="flex items-center space-x-1">
+                  <span className="font-extrabold tracking-widest text-black font-sans uppercase text-xl sm:text-2xl md:text-3xl">
+                    BLUCHEEZ
+                  </span>
+                  <span className="text-[9px] sm:text-[10px] uppercase tracking-widest px-1 py-0.5 rounded bg-black text-white font-bold">
+                    .FASHION
+                  </span>
+                </div>
+                <p className="text-[8px] sm:text-[9px] text-neutral-500 uppercase tracking-widest font-semibold hidden sm:block">
+                  Modern Lifestyle & Heritage Atelier
+                </p>
+              </Link>
+            </div>
 
           {/* Search Bar with Live Suggestions (Desktop) */}
           <div ref={searchContainerRef} className="relative flex-1 max-w-xl mx-2 sm:mx-6 hidden sm:block">
@@ -757,5 +758,6 @@ export const Header: React.FC = () => {
         </div>
       )}
     </header>
+    </>
   );
 };
