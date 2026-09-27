@@ -6,7 +6,8 @@ import {
   Mail, 
   Truck, 
   Banknote,
-  ArrowRight
+  ArrowRight,
+  BookOpen
 } from 'lucide-react';
 
 export const Footer: React.FC = () => {
@@ -195,6 +196,12 @@ export const Footer: React.FC = () => {
               <li>
                 <Link to="/exchange-policy" className="hover:text-white transition-colors">
                   7-Day Hassle-Free Size Exchange
+                </Link>
+              </li>
+              <li>
+                <Link to="/blog" className="hover:text-white transition-colors flex items-center">
+                  <BookOpen className="w-3.5 h-3.5 mr-1 text-neutral-300" />
+                  Fashion Blog & Articles
                 </Link>
               </li>
               <li>

@@ -31,6 +31,8 @@ import { WishlistPage } from './pages/WishlistPage';
 import { OutletsPage } from './pages/OutletsPage';
 import { ExchangePolicyPage } from './pages/ExchangePolicyPage';
 import { AboutPage } from './pages/AboutPage';
+import { BlogPage } from './pages/BlogPage';
+import { BlogPostPage } from './pages/BlogPostPage';
 
 // Admin Pages
 import { AdminLoginPage } from './pages/AdminLoginPage';
@@ -88,6 +90,11 @@ function AppContent() {
 
           {/* Atelier Brand Story & Heritage */}
           <Route path="/about" element={<AboutPage />} />
+
+          {/* Fashion Journal & Blog Articles */}
+          <Route path="/blog" element={<BlogPage />} />
+          <Route path="/blog/:slug" element={<BlogPostPage />} />
+          <Route path="/blogs" element={<Navigate to="/blog" replace />} />
 
           {/* Catch-all redirect to Home */}
           <Route path="*" element={<Navigate to="/" replace />} />

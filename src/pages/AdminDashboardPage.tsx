@@ -12,14 +12,15 @@ import { OrdersManagement } from '../components/admin/OrdersManagement';
 import { ProductsManagement } from '../components/admin/ProductsManagement';
 import { CustomersManagement } from '../components/admin/CustomersManagement';
 import { PagesManagement } from '../components/admin/PagesManagement';
+import { BlogManagement } from '../components/admin/BlogManagement';
 import {
   LayoutDashboard, ShoppingBag, Package, Users, Video, FolderOpen,
   Tag, Settings, LogOut, Menu, X, TrendingUp, TrendingDown, Clock,
   CheckCircle2, Truck, XCircle, AlertTriangle, ArrowUpRight, ExternalLink,
-  RefreshCw, BarChart2, Star, Sparkles, Ticket, MapPin, FileText
+  RefreshCw, BarChart2, Star, Sparkles, Ticket, MapPin, FileText, BookOpen
 } from 'lucide-react';
 
-type TabType = 'overview' | 'orders' | 'products' | 'customers' | 'hero-video' | 'festive' | 'voucher' | 'outlets' | 'categories' | 'promocodes' | 'pages' | 'settings';
+type TabType = 'overview' | 'orders' | 'products' | 'customers' | 'hero-video' | 'festive' | 'voucher' | 'outlets' | 'categories' | 'promocodes' | 'pages' | 'blogs' | 'settings';
 
 interface DashboardStats {
   totalProducts: number;
@@ -51,6 +52,7 @@ const NAV_ITEMS: { id: TabType; label: string; icon: React.ReactNode; badge?: st
   { id: 'categories', label: 'Categories', icon: <FolderOpen className="w-5 h-5" /> },
   { id: 'promocodes', label: 'Promocodes', icon: <Tag className="w-5 h-5" /> },
   { id: 'pages',      label: 'Pages Content', icon: <FileText className="w-5 h-5 text-violet-500" />, badge: 'Content' },
+  { id: 'blogs',      label: 'Blog Posts',    icon: <BookOpen className="w-5 h-5 text-indigo-500" />, badge: 'Blog' },
   { id: 'settings',   label: 'Settings',    icon: <Settings className="w-5 h-5" /> },
 ];
 
@@ -509,6 +511,7 @@ export const AdminDashboardPage: React.FC = () => {
           {activeTab === 'categories' && <CategoryManagement />}
           {activeTab === 'promocodes' && <PromocodeManagement />}
           {activeTab === 'pages' && <PagesManagement />}
+          {activeTab === 'blogs' && <BlogManagement />}
           {activeTab === 'settings' && <SettingsManagement />}
 
         </main>
