@@ -56,7 +56,7 @@ export const AdminLoginPage: React.FC = () => {
       />
 
       {/* Dark gradient & atmospheric luxury overlays */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/85 via-gray-950/80 to-black/90 backdrop-blur-[3px]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-gray-950/30 to-black/50 backdrop-blur-[2px]" />
 
       {/* Background glow effects */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-purple-900/20 rounded-full blur-3xl pointer-events-none" />
@@ -65,9 +65,6 @@ export const AdminLoginPage: React.FC = () => {
       <div className="max-w-md w-full relative z-10">
         {/* Brand / Title Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-md mb-3 shadow-xl shadow-black/50">
-            <ShieldCheck className="w-6 h-6 text-amber-300" />
-          </div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight">
             Aristo Fashion
           </h1>
