@@ -63,10 +63,10 @@ function getSettings($db) {
         }
         
         http_response_code(200);
-        echo json_encode($settingsObject);
+        echo json_encode($settingsObject, JSON_UNESCAPED_UNICODE);
     } catch(PDOException $exception) {
         http_response_code(500);
-        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()], JSON_UNESCAPED_UNICODE);
     }
 }
 
@@ -75,11 +75,15 @@ function createSetting($db) {
     
     if (!isset($data->setting_key) || !isset($data->setting_value)) {
         http_response_code(400);
-        echo json_encode(["message" => "Setting key and value are required"]);
+        echo json_encode(["message" => "Setting key and value are required"], JSON_UNESCAPED_UNICODE);
         return;
     }
     
     try {
+        try {
+            $db->exec("ALTER TABLE settings CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        } catch(Exception $ex) {}
+
         $query = "INSERT INTO settings (setting_key, setting_value, setting_type, category, description) 
                   VALUES (:setting_key, :setting_value, :setting_type, :category, :description)";
         
@@ -92,10 +96,10 @@ function createSetting($db) {
         $stmt->execute();
         
         http_response_code(201);
-        echo json_encode(["message" => "Setting created successfully", "id" => $db->lastInsertId()]);
+        echo json_encode(["message" => "Setting created successfully", "id" => $db->lastInsertId()], JSON_UNESCAPED_UNICODE);
     } catch(PDOException $exception) {
         http_response_code(500);
-        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()], JSON_UNESCAPED_UNICODE);
     }
 }
 
@@ -104,11 +108,15 @@ function updateSetting($db) {
     
     if (!isset($data->setting_key)) {
         http_response_code(400);
-        echo json_encode(["message" => "Setting key is required"]);
+        echo json_encode(["message" => "Setting key is required"], JSON_UNESCAPED_UNICODE);
         return;
     }
     
     try {
+        try {
+            $db->exec("ALTER TABLE settings CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        } catch(Exception $ex) {}
+
         $checkStmt = $db->prepare("SELECT id FROM settings WHERE setting_key = :setting_key");
         $checkStmt->execute([':setting_key' => $data->setting_key]);
         if ($checkStmt->rowCount() > 0) {
@@ -128,10 +136,10 @@ function updateSetting($db) {
         $stmt->execute();
         
         http_response_code(200);
-        echo json_encode(["message" => "Setting updated successfully"]);
+        echo json_encode(["message" => "Setting updated successfully"], JSON_UNESCAPED_UNICODE);
     } catch(PDOException $exception) {
         http_response_code(500);
-        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()], JSON_UNESCAPED_UNICODE);
     }
 }
 

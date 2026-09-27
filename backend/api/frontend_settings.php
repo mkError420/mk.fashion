@@ -18,9 +18,9 @@ try {
     }
     
     http_response_code(200);
-    echo json_encode($settingsObject);
+    echo json_encode($settingsObject, JSON_UNESCAPED_UNICODE);
 } catch(PDOException $exception) {
     http_response_code(500);
-    echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+    echo json_encode(["message" => "Database error: " . $exception->getMessage()], JSON_UNESCAPED_UNICODE);
 }
 ?>

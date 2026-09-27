@@ -12,6 +12,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://efashionbd.rf.gd/b
 interface Product {
   id: number;
   name: string;
+  bengali_name?: string | null;
   slug?: string;
   description?: string;
   price: number;
@@ -50,6 +51,7 @@ interface ProductVariantItem {
 
 interface ProductFormData {
   name: string;
+  bengali_name: string;
   description: string;
   price: number | string;
   compare_price: number | string;
@@ -63,7 +65,7 @@ interface ProductFormData {
 }
 
 const EMPTY_FORM: ProductFormData = {
-  name: '', description: '', price: '', compare_price: '',
+  name: '', bengali_name: '', description: '', price: '', compare_price: '',
   sku: '', stock_quantity: '',
   parent_category_id: '', category_id: '',
   image_url: '', is_active: true, is_featured: false,
@@ -182,6 +184,7 @@ export const ProductsManagement: React.FC = () => {
     setEditingProduct(p);
     setFormData({
       name: p.name,
+      bengali_name: p.bengali_name || '',
       description: p.description || '',
       price: p.price,
       compare_price: p.compare_price || '',
@@ -437,6 +440,7 @@ export const ProductsManagement: React.FC = () => {
     try {
       const payload = {
         name: formData.name,
+        bengali_name: formData.bengali_name.trim() || null,
         description: formData.description,
         price: Number(formData.price),
         compare_price: formData.compare_price !== '' ? Number(formData.compare_price) : null,
@@ -500,6 +504,7 @@ export const ProductsManagement: React.FC = () => {
         body: JSON.stringify({
           id: product.id,
           name: product.name,
+          bengali_name: product.bengali_name || null,
           description: product.description || null,
           price: product.price,
           compare_price: product.compare_price || null,
@@ -594,6 +599,9 @@ export const ProductsManagement: React.FC = () => {
                       )}
                       <div>
                         <p className="font-semibold text-gray-900 line-clamp-1">{product.name}</p>
+                        {product.bengali_name && (
+                          <p className="text-xs text-gray-500 font-bangla line-clamp-1">{product.bengali_name}</p>
+                        )}
                         <p className="text-xs text-gray-400">ID: {product.id}</p>
                       </div>
                     </div>
@@ -776,12 +784,23 @@ export const ProductsManagement: React.FC = () => {
                  ───────────────────────────────────────────────────────────── */}
               {activeTab === 'basic' && (
                 <form id="productBasicForm" onSubmit={handleSave} className="space-y-5">
-                  {/* Product Name */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Product Name *</label>
-                    <input required type="text" value={formData.name}
-                      onChange={e => setFormData({ ...formData, name: e.target.value })}
-                      className={inputCls} placeholder="e.g. Royal Bengal Cotton Panjabi" />
+                  {/* Product Name & Bengali Name */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Product Name (English) *</label>
+                      <input required type="text" value={formData.name}
+                        onChange={e => setFormData({ ...formData, name: e.target.value })}
+                        className={inputCls} placeholder="e.g. Royal Bengal Cotton Panjabi" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1 flex items-center justify-between">
+                        <span>Bengali Name (বাংলা নাম)</span>
+                        <span className="text-[11px] text-gray-400 font-normal">ঐচ্ছিক</span>
+                      </label>
+                      <input type="text" value={formData.bengali_name}
+                        onChange={e => setFormData({ ...formData, bengali_name: e.target.value })}
+                        className={inputCls + ' font-bangla'} placeholder="যেমন: রয়্যাল বেঙ্গল কটন পাঞ্জাবি" />
+                    </div>
                   </div>
 
                   {/* Price + Compare Price */}

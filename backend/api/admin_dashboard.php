@@ -344,7 +344,7 @@ function getProducts($db) {
         $limit = isset($_GET['limit']) ? $_GET['limit'] : 20;
         $offset = isset($_GET['offset']) ? $_GET['offset'] : 0;
         
-        $query = "SELECT p.id, p.name, p.slug, p.description, p.price, p.compare_price,
+        $query = "SELECT p.id, p.name, p.bengali_name, p.slug, p.description, p.price, p.compare_price,
                   p.sku, p.stock_quantity, p.category_id, p.image_url,
                   p.is_active, p.is_featured, c.name as category_name, p.created_at,
                   (SELECT COUNT(*) FROM product_images WHERE product_id = p.id) as image_count,
@@ -361,10 +361,10 @@ function getProducts($db) {
         $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         http_response_code(200);
-        echo json_encode($products);
+        echo json_encode($products, JSON_UNESCAPED_UNICODE);
     } catch(PDOException $exception) {
         http_response_code(500);
-        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()], JSON_UNESCAPED_UNICODE);
     }
 }
 
@@ -384,10 +384,10 @@ function getCustomers($db) {
         $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         http_response_code(200);
-        echo json_encode($customers);
+        echo json_encode($customers, JSON_UNESCAPED_UNICODE);
     } catch(PDOException $exception) {
         http_response_code(500);
-        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()], JSON_UNESCAPED_UNICODE);
     }
 }
 
@@ -397,37 +397,47 @@ function createProduct($db) {
     
     if (!isset($data->name) || !isset($data->price) || !isset($data->category_id)) {
         http_response_code(400);
-        echo json_encode(["message" => "Missing required fields"]);
+        echo json_encode(["message" => "Missing required fields"], JSON_UNESCAPED_UNICODE);
         return;
     }
     
     try {
-        $query = "INSERT INTO products (name, slug, description, price, compare_price, sku, stock_quantity, category_id, image_url, is_active, is_featured) 
-                  VALUES (:name, :slug, :description, :price, :compare_price, :sku, :stock_quantity, :category_id, :image_url, :is_active, :is_featured)";
-        
-        $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $data->name)));
+        $baseSlug = !empty($data->slug) ? generateSafeSlug($data->slug, 'product') : generateSafeSlug($data->name, 'product');
+        $slug = getUniqueProductSlug($db, $baseSlug);
+
+        $bengali_name  = isset($data->bengali_name)  && trim($data->bengali_name) !== '' ? trim($data->bengali_name) : null;
+        $compare_price = isset($data->compare_price) && $data->compare_price !== '' ? $data->compare_price : null;
+        $sku           = isset($data->sku)           ? $data->sku           : null;
+        $image_url     = isset($data->image_url)     ? $data->image_url     : null;
+        $description   = isset($data->description)   ? $data->description   : null;
+        $is_active     = isset($data->is_active)     ? ($data->is_active ? 1 : 0) : 1;
+        $is_featured   = isset($data->is_featured)   ? ($data->is_featured ? 1 : 0) : 0;
+
+        $query = "INSERT INTO products (name, bengali_name, slug, description, price, compare_price, sku, stock_quantity, category_id, image_url, is_active, is_featured) 
+                  VALUES (:name, :bengali_name, :slug, :description, :price, :compare_price, :sku, :stock_quantity, :category_id, :image_url, :is_active, :is_featured)";
         
         $stmt = $db->prepare($query);
         $stmt->bindParam(':name', $data->name);
+        $stmt->bindParam(':bengali_name', $bengali_name);
         $stmt->bindParam(':slug', $slug);
-        $stmt->bindParam(':description', $data->description);
+        $stmt->bindParam(':description', $description);
         $stmt->bindParam(':price', $data->price);
-        $stmt->bindParam(':compare_price', $data->compare_price);
-        $stmt->bindParam(':sku', $data->sku);
+        $stmt->bindParam(':compare_price', $compare_price);
+        $stmt->bindParam(':sku', $sku);
         $stmt->bindParam(':stock_quantity', $data->stock_quantity);
         $stmt->bindParam(':category_id', $data->category_id);
-        $stmt->bindParam(':image_url', $data->image_url);
-        $stmt->bindParam(':is_active', $data->is_active);
-        $stmt->bindParam(':is_featured', $data->is_featured);
+        $stmt->bindParam(':image_url', $image_url);
+        $stmt->bindParam(':is_active', $is_active);
+        $stmt->bindParam(':is_featured', $is_featured);
         $stmt->execute();
         
         $newId = $db->lastInsertId();
 
         // Also save primary image into product_images if image_url provided
-        if (!empty($data->image_url)) {
+        if (!empty($image_url)) {
             $stmtImg = $db->prepare("INSERT INTO product_images (product_id, image_url, is_primary, sort_order) VALUES (:pid, :img, 1, 0)");
             $stmtImg->bindParam(':pid', $newId, PDO::PARAM_INT);
-            $stmtImg->bindParam(':img', $data->image_url);
+            $stmtImg->bindParam(':img', $image_url);
             $stmtImg->execute();
         }
 
@@ -442,10 +452,10 @@ function createProduct($db) {
         }
 
         http_response_code(201);
-        echo json_encode(["message" => "Product created successfully", "id" => $newId]);
+        echo json_encode(["message" => "Product created successfully", "id" => $newId, "slug" => $slug], JSON_UNESCAPED_UNICODE);
     } catch(PDOException $exception) {
         http_response_code(500);
-        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()], JSON_UNESCAPED_UNICODE);
     }
 }
 
@@ -455,20 +465,25 @@ function updateProduct($db) {
     
     if (!isset($data->id)) {
         http_response_code(400);
-        echo json_encode(["message" => "Product ID is required"]);
+        echo json_encode(["message" => "Product ID is required"], JSON_UNESCAPED_UNICODE);
         return;
     }
     
     try {
-        $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $data->name)));
+        $baseSlug = !empty($data->slug) ? generateSafeSlug($data->slug, 'product') : generateSafeSlug($data->name, 'product');
+        $slug = getUniqueProductSlug($db, $baseSlug, $data->id);
+
+        $bengali_name  = isset($data->bengali_name)  && trim($data->bengali_name) !== '' ? trim($data->bengali_name) : null;
         $compare_price = isset($data->compare_price) && $data->compare_price !== '' ? $data->compare_price : null;
         $category_id   = isset($data->category_id)   && $data->category_id   !== '' ? $data->category_id   : null;
         $sku           = isset($data->sku)           ? $data->sku           : null;
         $image_url     = isset($data->image_url)     ? $data->image_url     : null;
         $description   = isset($data->description)   ? $data->description   : null;
+        $is_active     = isset($data->is_active)     ? ($data->is_active ? 1 : 0) : 1;
+        $is_featured   = isset($data->is_featured)   ? ($data->is_featured ? 1 : 0) : 0;
 
         $query = "UPDATE products SET
-                  name = :name, slug = :slug, description = :description,
+                  name = :name, bengali_name = :bengali_name, slug = :slug, description = :description,
                   price = :price, compare_price = :compare_price,
                   sku = :sku, stock_quantity = :stock_quantity,
                   category_id = :category_id, image_url = :image_url,
@@ -477,6 +492,7 @@ function updateProduct($db) {
         
         $stmt = $db->prepare($query);
         $stmt->bindParam(':name',          $data->name);
+        $stmt->bindParam(':bengali_name',  $bengali_name);
         $stmt->bindParam(':slug',          $slug);
         $stmt->bindParam(':description',   $description);
         $stmt->bindParam(':price',         $data->price);
@@ -485,8 +501,8 @@ function updateProduct($db) {
         $stmt->bindParam(':stock_quantity',$data->stock_quantity);
         $stmt->bindParam(':category_id',   $category_id);
         $stmt->bindParam(':image_url',     $image_url);
-        $stmt->bindParam(':is_active',     $data->is_active);
-        $stmt->bindParam(':is_featured',   $data->is_featured);
+        $stmt->bindParam(':is_active',     $is_active);
+        $stmt->bindParam(':is_featured',   $is_featured);
         $stmt->bindParam(':id',            $data->id);
         $stmt->execute();
 
@@ -501,10 +517,10 @@ function updateProduct($db) {
         }
         
         http_response_code(200);
-        echo json_encode(["message" => "Product updated successfully"]);
+        echo json_encode(["message" => "Product updated successfully"], JSON_UNESCAPED_UNICODE);
     } catch(PDOException $exception) {
         http_response_code(500);
-        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()], JSON_UNESCAPED_UNICODE);
     }
 }
 
@@ -600,13 +616,14 @@ function createCategory($db) {
     
     if (!isset($data->name)) {
         http_response_code(400);
-        echo json_encode(["message" => "Category name is required"]);
+        echo json_encode(["message" => "Category name is required"], JSON_UNESCAPED_UNICODE);
         return;
     }
     
     try {
         ensureCategoryNavbarColumn($db);
-        $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $data->name)));
+        $baseSlug = !empty($data->slug) ? generateSafeSlug($data->slug, 'cat') : generateSafeSlug($data->name, 'cat');
+        $slug = getUniqueCategorySlug($db, $baseSlug);
         $show_in_navbar = isset($data->show_in_navbar) ? ($data->show_in_navbar ? 1 : 0) : 1;
         
         $query = "INSERT INTO categories (name, slug, description, parent_id, show_in_navbar) VALUES (:name, :slug, :description, :parent_id, :show_in_navbar)";
@@ -620,10 +637,10 @@ function createCategory($db) {
         $stmt->execute();
         
         http_response_code(201);
-        echo json_encode(["message" => "Category created successfully", "id" => $db->lastInsertId()]);
+        echo json_encode(["message" => "Category created successfully", "id" => $db->lastInsertId(), "slug" => $slug], JSON_UNESCAPED_UNICODE);
     } catch(PDOException $exception) {
         http_response_code(500);
-        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()], JSON_UNESCAPED_UNICODE);
     }
 }
 
@@ -632,14 +649,15 @@ function updateCategory($db) {
     
     if (!isset($data->id)) {
         http_response_code(400);
-        echo json_encode(["message" => "Category ID is required"]);
+        echo json_encode(["message" => "Category ID is required"], JSON_UNESCAPED_UNICODE);
         return;
     }
     
     try {
         ensureCategoryNavbarColumn($db);
         if (isset($data->name)) {
-            $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $data->name)));
+            $baseSlug = !empty($data->slug) ? generateSafeSlug($data->slug, 'cat') : generateSafeSlug($data->name, 'cat');
+            $slug = getUniqueCategorySlug($db, $baseSlug, $data->id);
         } else {
             $slug = $data->slug;
         }
@@ -658,10 +676,10 @@ function updateCategory($db) {
         $stmt->execute();
         
         http_response_code(200);
-        echo json_encode(["message" => "Category updated successfully"]);
+        echo json_encode(["message" => "Category updated successfully"], JSON_UNESCAPED_UNICODE);
     } catch(PDOException $exception) {
         http_response_code(500);
-        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()], JSON_UNESCAPED_UNICODE);
     }
 }
 
@@ -1040,10 +1058,10 @@ function getSettings($db) {
         }
         
         http_response_code(200);
-        echo json_encode($settingsObject);
+        echo json_encode($settingsObject, JSON_UNESCAPED_UNICODE);
     } catch(PDOException $exception) {
         http_response_code(500);
-        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()], JSON_UNESCAPED_UNICODE);
     }
 }
 
@@ -1052,11 +1070,15 @@ function createSetting($db) {
     
     if (!isset($data->setting_key) || !isset($data->setting_value)) {
         http_response_code(400);
-        echo json_encode(["message" => "Setting key and value are required"]);
+        echo json_encode(["message" => "Setting key and value are required"], JSON_UNESCAPED_UNICODE);
         return;
     }
     
     try {
+        try {
+            $db->exec("ALTER TABLE settings CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        } catch(Exception $ex) {}
+
         $query = "INSERT INTO settings (setting_key, setting_value, setting_type, category, description) VALUES (:setting_key, :setting_value, :setting_type, :category, :description)";
         
         $stmt = $db->prepare($query);
@@ -1068,10 +1090,10 @@ function createSetting($db) {
         $stmt->execute();
         
         http_response_code(201);
-        echo json_encode(["message" => "Setting created successfully", "id" => $db->lastInsertId()]);
+        echo json_encode(["message" => "Setting created successfully", "id" => $db->lastInsertId()], JSON_UNESCAPED_UNICODE);
     } catch(PDOException $exception) {
         http_response_code(500);
-        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()], JSON_UNESCAPED_UNICODE);
     }
 }
 
@@ -1080,11 +1102,15 @@ function updateSetting($db) {
     
     if (!isset($data->setting_key)) {
         http_response_code(400);
-        echo json_encode(["message" => "Setting key is required"]);
+        echo json_encode(["message" => "Setting key is required"], JSON_UNESCAPED_UNICODE);
         return;
     }
     
     try {
+        try {
+            $db->exec("ALTER TABLE settings CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        } catch(Exception $ex) {}
+
         $checkStmt = $db->prepare("SELECT id FROM settings WHERE setting_key = :setting_key");
         $checkStmt->execute([':setting_key' => $data->setting_key]);
         if ($checkStmt->rowCount() > 0) {
@@ -1102,10 +1128,10 @@ function updateSetting($db) {
         $stmt->execute();
         
         http_response_code(200);
-        echo json_encode(["message" => "Setting updated successfully"]);
+        echo json_encode(["message" => "Setting updated successfully"], JSON_UNESCAPED_UNICODE);
     } catch(PDOException $exception) {
         http_response_code(500);
-        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()], JSON_UNESCAPED_UNICODE);
     }
 }
 
@@ -1136,10 +1162,76 @@ function deleteSetting($db) {
    PRODUCT IMAGES & VARIANTS MANAGEMENT HANDLERS
    ========================================================================= */
 
+function generateSafeSlug($name, $prefix = 'item') {
+    $clean = strtolower(trim(preg_replace('/[^A-Za-z0-9]+/', '-', (string)$name), '-'));
+    if (!empty($clean)) {
+        return $clean;
+    }
+    return $prefix . '-' . substr(md5((string)$name . microtime()), 0, 8);
+}
+
+function getUniqueProductSlug($db, $baseSlug, $excludeId = null) {
+    $slug = $baseSlug;
+    $counter = 1;
+    while (true) {
+        if ($excludeId) {
+            $stmt = $db->prepare("SELECT id FROM products WHERE slug = :slug AND id != :id LIMIT 1");
+            $stmt->bindParam(':slug', $slug);
+            $stmt->bindParam(':id', $excludeId, PDO::PARAM_INT);
+        } else {
+            $stmt = $db->prepare("SELECT id FROM products WHERE slug = :slug LIMIT 1");
+            $stmt->bindParam(':slug', $slug);
+        }
+        $stmt->execute();
+        if (!$stmt->fetch()) {
+            return $slug;
+        }
+        $counter++;
+        $slug = $baseSlug . '-' . $counter;
+    }
+}
+
+function getUniqueCategorySlug($db, $baseSlug, $excludeId = null) {
+    $slug = $baseSlug;
+    $counter = 1;
+    while (true) {
+        if ($excludeId) {
+            $stmt = $db->prepare("SELECT id FROM categories WHERE slug = :slug AND id != :id LIMIT 1");
+            $stmt->bindParam(':slug', $slug);
+            $stmt->bindParam(':id', $excludeId, PDO::PARAM_INT);
+        } else {
+            $stmt = $db->prepare("SELECT id FROM categories WHERE slug = :slug LIMIT 1");
+            $stmt->bindParam(':slug', $slug);
+        }
+        $stmt->execute();
+        if (!$stmt->fetch()) {
+            return $slug;
+        }
+        $counter++;
+        $slug = $baseSlug . '-' . $counter;
+    }
+}
+
 function ensureVariantsAndImagesTables($db) {
     static $ensured = false;
     if ($ensured) return;
     try {
+        // Ensure all tables use utf8mb4 charset and collation for full Bangla support
+        $tables = ['products', 'categories', 'settings', 'promocodes', 'product_images', 'product_variants', 'customers', 'orders', 'order_items'];
+        foreach ($tables as $t) {
+            try {
+                $db->exec("ALTER TABLE `$t` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+            } catch(Exception $ex) {}
+        }
+
+        // Ensure bengali_name column exists in products table
+        try {
+            $colCheck = $db->query("SHOW COLUMNS FROM products LIKE 'bengali_name'");
+            if ($colCheck && $colCheck->rowCount() === 0) {
+                $db->exec("ALTER TABLE products ADD COLUMN bengali_name VARCHAR(255) DEFAULT NULL AFTER name");
+            }
+        } catch(Exception $ex) {}
+
         $db->exec("CREATE TABLE IF NOT EXISTS product_images (
             id INT AUTO_INCREMENT PRIMARY KEY,
             product_id INT NOT NULL,
@@ -1149,7 +1241,7 @@ function ensureVariantsAndImagesTables($db) {
             sort_order INT DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
         $db->exec("CREATE TABLE IF NOT EXISTS product_variants (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -1163,7 +1255,7 @@ function ensureVariantsAndImagesTables($db) {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $ensured = true;
     } catch(Exception $e) {
         // Silently continue

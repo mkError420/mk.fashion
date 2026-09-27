@@ -301,7 +301,7 @@ export const convertBackendToFrontendProduct = (backendProduct: BackendProduct):
     id: backendProduct.id.toString(),
     backendId: backendProduct.id,
     name: backendProduct.name,
-    bengaliName: backendProduct.name, // Use same name for now
+    bengaliName: (backendProduct as any).bengali_name || backendProduct.name,
     category: backendProduct.category_slug as any || 'all',
     subcategory: backendProduct.subcategory_name || undefined,
     gender: (backendProduct.category_slug === 'men' ? 'men' : backendProduct.category_slug === 'women' ? 'women' : 'unisex') as any,

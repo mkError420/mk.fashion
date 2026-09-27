@@ -18,12 +18,13 @@ switch($request_method) {
 }
 
 function getProducts($db) {
+    ensureTablesExist($db);
     $category_id = isset($_GET['category_id']) ? $_GET['category_id'] : null;
     $featured = isset($_GET['featured']) ? $_GET['featured'] : null;
     $limit = isset($_GET['limit']) ? $_GET['limit'] : null;
     $offset = isset($_GET['offset']) ? $_GET['offset'] : 0;
     
-    $query = "SELECT p.id, p.name, p.slug, p.description, p.price, p.compare_price, p.sku, p.stock_quantity, p.image_url, p.is_featured,
+    $query = "SELECT p.id, p.name, p.bengali_name, p.slug, p.description, p.price, p.compare_price, p.sku, p.stock_quantity, p.image_url, p.is_featured,
                      CASE WHEN c.parent_id IS NOT NULL THEN parent_c.name ELSE c.name END as category_name,
                      CASE WHEN c.parent_id IS NOT NULL THEN parent_c.slug ELSE c.slug END as category_slug,
                      CASE WHEN c.parent_id IS NOT NULL THEN c.name ELSE NULL END as subcategory_name
@@ -69,7 +70,7 @@ function getProducts($db) {
     }
     
     http_response_code(200);
-    echo json_encode($products);
+    echo json_encode($products, JSON_UNESCAPED_UNICODE);
 }
 
 function getProductImages($db, $product_id) {
@@ -118,6 +119,13 @@ function getProductVariants($db, $product_id) {
 
 function ensureTablesExist($db) {
     try {
+        try {
+            $colCheck = $db->query("SHOW COLUMNS FROM products LIKE 'bengali_name'");
+            if ($colCheck && $colCheck->rowCount() === 0) {
+                $db->exec("ALTER TABLE products ADD COLUMN bengali_name VARCHAR(255) DEFAULT NULL AFTER name");
+            }
+        } catch(Exception $ex) {}
+
         $db->exec("CREATE TABLE IF NOT EXISTS product_images (
             id INT AUTO_INCREMENT PRIMARY KEY,
             product_id INT NOT NULL,
@@ -127,7 +135,7 @@ function ensureTablesExist($db) {
             sort_order INT DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
         $db->exec("CREATE TABLE IF NOT EXISTS product_variants (
             id INT AUTO_INCREMENT PRIMARY KEY,
