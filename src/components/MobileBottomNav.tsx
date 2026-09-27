@@ -4,7 +4,7 @@ import { Home, Grid, Heart, ShoppingBag, Truck } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
 
 export const MobileBottomNav: React.FC = () => {
-  const { cart, wishlist } = useShop();
+  const { cart, wishlist, isMobileMenuOpen, setIsMobileMenuOpen } = useShop();
   const location = useLocation();
 
   const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
@@ -31,16 +31,18 @@ export const MobileBottomNav: React.FC = () => {
           <span className="text-[10px] mt-1">Home</span>
         </Link>
 
-        {/* Shop */}
-        <Link
-          to="/shop"
+        {/* Categories / Mobile Navbar */}
+        <button
+          type="button"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           className={`flex flex-col items-center justify-center p-1.5 transition-colors cursor-pointer ${
-            isActive('/shop') ? 'text-black font-bold' : 'text-neutral-600 hover:text-black'
+            isMobileMenuOpen ? 'text-black font-bold' : 'text-neutral-600 hover:text-black'
           }`}
+          aria-label="Open Categories Menu"
         >
           <Grid className="w-5 h-5" />
-          <span className="text-[10px] mt-1 font-bold">Shop</span>
-        </Link>
+          <span className="text-[10px] mt-1 font-bold">Categories</span>
+        </button>
 
         {/* Track Parcel */}
         <Link

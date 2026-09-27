@@ -48,6 +48,15 @@ body {
   min-height: 100vh;
 }
 
+/* Responsive utility to hide scrollbars while allowing smooth touch/mouse scroll */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 @keyframes marquee {
   0% {
     transform: translateX(0);
