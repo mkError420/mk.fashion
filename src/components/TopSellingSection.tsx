@@ -44,7 +44,6 @@ export const TopSellingSection: React.FC = () => {
         <div>
           <div className="flex items-center space-x-2 mb-1">
             <span className="text-[10px] uppercase font-extrabold tracking-widest px-2.5 py-0.5 bg-neutral-900 text-white flex items-center space-x-1">
-              <Flame className="w-3 h-3 text-amber-400 mr-0.5" />
               <span>TOP SELLING</span>
             </span>
             <span className="text-xs text-neutral-500 font-medium">
@@ -52,18 +51,18 @@ export const TopSellingSection: React.FC = () => {
             </span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 font-serif">
-            Top 8 Best Sellers
+            Top Collections
           </h2>
-          <p className="text-xs sm:text-sm text-neutral-500 mt-1">
+          {/*           <p className="text-xs sm:text-sm text-neutral-500 mt-1">
             Editorial showcase curated in 1-Big & 3-Small display format.
-          </p>
+          </p> */}
         </div>
 
         <Link
           to="/shop?sort=bestseller"
           className="inline-flex items-center space-x-1.5 text-xs font-bold uppercase tracking-wider text-black hover:text-neutral-600 transition-colors group flex-shrink-0"
         >
-          <span>View All Top Sellers</span>
+          <span>View All Top Collections</span>
           <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
         </Link>
       </div>

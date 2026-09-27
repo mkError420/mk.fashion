@@ -81,7 +81,6 @@ export const FestiveTabShowcase: React.FC = () => {
           <div className="inline-flex items-center gap-2 mb-2">
             <span className="w-8 h-[1px] bg-neutral-300"></span>
             <span className="text-[10px] uppercase font-bold tracking-[0.3em] text-neutral-500 flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3 text-amber-500" />
               {activeConfig.badge || 'CURATED DROPS'}
             </span>
             <span className="w-8 h-[1px] bg-neutral-300"></span>
@@ -95,10 +94,10 @@ export const FestiveTabShowcase: React.FC = () => {
       {/* Product Grid - Clicking any image redirects directly to the Shop page with its category and subcategory */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
         {displayedProducts.map((product) => (
-          <ProductCard 
-            key={product.id} 
-            product={product} 
-            redirectToCategory={true} 
+          <ProductCard
+            key={product.id}
+            product={product}
+            redirectToCategory={true}
           />
         ))}
       </div>
