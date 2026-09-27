@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
-  ShoppingBag, 
-  Trash2, 
-  Plus, 
-  Minus, 
-  ArrowRight, 
-  Truck, 
-  Sparkles, 
-  ShieldCheck, 
-  RefreshCw, 
-  Tag, 
-  Gift, 
-  Check, 
+import {
+  ShoppingBag,
+  Trash2,
+  Plus,
+  Minus,
+  ArrowRight,
+  Truck,
+  Sparkles,
+  ShieldCheck,
+  RefreshCw,
+  Tag,
+  Gift,
+  Check,
   FileText,
   ChevronRight
 } from 'lucide-react';
@@ -20,17 +20,17 @@ import { useShop } from '../context/ShopContext';
 
 export const CartPage: React.FC = () => {
   const navigate = useNavigate();
-  const { 
-    cart, 
-    removeFromCart, 
-    updateCartQuantity, 
-    appliedCoupon, 
-    applyCoupon, 
-    removeCoupon, 
-    orderNote, 
-    setOrderNote, 
-    isGiftPackaging, 
-    setIsGiftPackaging 
+  const {
+    cart,
+    removeFromCart,
+    updateCartQuantity,
+    appliedCoupon,
+    applyCoupon,
+    removeCoupon,
+    orderNote,
+    setOrderNote,
+    isGiftPackaging,
+    setIsGiftPackaging
   } = useShop();
 
   const [couponInput, setCouponInput] = useState('');
@@ -38,7 +38,7 @@ export const CartPage: React.FC = () => {
 
   const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
   const subtotal = cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
-  
+
   // Free delivery threshold: 3,000 BDT
   const freeThreshold = 3000;
   const isFreeDelivery = subtotal >= freeThreshold;
@@ -77,7 +77,7 @@ export const CartPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white pb-20">
-      
+
       {/* Breadcrumb */}
       <div className="w-full max-w-7xl md:max-w-none px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 mx-auto py-4 border-b border-neutral-100">
         <nav className="flex items-center space-x-2 text-xs text-neutral-500">
@@ -88,7 +88,7 @@ export const CartPage: React.FC = () => {
       </div>
 
       <div className="w-full max-w-7xl md:max-w-none px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 mx-auto py-8">
-        
+
         <div className="flex items-baseline justify-between mb-8 border-b border-neutral-200 pb-4">
           <h1 className="text-2xl sm:text-3xl font-extrabold font-serif text-neutral-900">
             Your Shopping Bag
@@ -117,10 +117,10 @@ export const CartPage: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-            
+
             {/* LEFT: Items List (8 cols on lg) */}
             <div className="lg:col-span-8 space-y-6">
-              
+
               {/* Free Delivery Bar */}
               <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-4">
                 <div className="flex items-center justify-between text-xs mb-2">
@@ -138,8 +138,8 @@ export const CartPage: React.FC = () => {
                 </div>
 
                 <div className="w-full h-2.5 bg-neutral-200 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-black rounded-full transition-all duration-500" 
+                  <div
+                    className="h-full bg-black rounded-full transition-all duration-500"
                     style={{ width: `${shippingPercent}%` }}
                   />
                 </div>
@@ -149,10 +149,10 @@ export const CartPage: React.FC = () => {
               <div className="border border-neutral-200 rounded-2xl overflow-hidden divide-y divide-neutral-200">
                 {cart.map((item) => (
                   <div key={item.id} className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white">
-                    
+
                     {/* Image & Title */}
                     <div className="flex items-center space-x-4">
-                      <Link 
+                      <Link
                         to={`/product/${item.product.id}`}
                         className="w-20 h-26 rounded-lg overflow-hidden bg-neutral-100 border border-neutral-200 flex-shrink-0"
                       >
@@ -167,7 +167,7 @@ export const CartPage: React.FC = () => {
                         <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                           {item.product.subcategory || item.product.category}
                         </span>
-                        
+
                         <h3 className="text-sm font-bold text-neutral-900 leading-snug">
                           <Link to={`/product/${item.product.id}`} className="hover:underline">
                             {item.product.name}
@@ -191,7 +191,7 @@ export const CartPage: React.FC = () => {
 
                     {/* Stepper, Price & Remove */}
                     <div className="flex items-center justify-between sm:justify-end space-x-6 w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-neutral-100">
-                      
+
                       {/* Stepper */}
                       <div className="flex items-center border border-neutral-300 rounded-lg bg-white overflow-hidden shadow-2xs">
                         <button
@@ -264,7 +264,7 @@ export const CartPage: React.FC = () => {
 
             {/* RIGHT: Order Summary & Checkout (4 cols on lg) */}
             <div className="lg:col-span-4 space-y-6">
-              
+
               {/* Order Summary Card */}
               <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-6 space-y-5">
                 <h3 className="font-sans uppercase tracking-widest font-extrabold text-sm text-neutral-900 border-b border-neutral-200 pb-3">
@@ -386,9 +386,9 @@ export const CartPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleProceedToCheckout}
-                  className="w-full bg-black hover:bg-neutral-800 text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center space-x-2 transition-all shadow-md cursor-pointer tracking-wider uppercase text-xs sm:text-sm active:scale-98"
+                  className="w-full bg-black hover:bg-neutral-800 text-white font-bold py-4 px-4 rounded-sm flex items-center justify-center space-x-2 transition-all shadow-md cursor-pointer tracking-wider uppercase text-xs sm:text-sm active:scale-98"
                 >
-                  <span>Cash on Delivery Checkout (ক্যাশ অন ডেলিভারি)</span>
+                  <span>Checkout</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
 

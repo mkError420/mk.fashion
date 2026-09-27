@@ -11,6 +11,11 @@ export interface Category {
   product_count: number;
   parent_name: string;
   show_in_navbar?: boolean | number;
+  show_in_ticker?: boolean | number;
+  bengali_name?: string;
+  image_url?: string;
+  badge?: string;
+  product_fallback_image?: string;
 }
 
 interface Promocode {
@@ -51,6 +56,7 @@ interface AdminDataContextType {
   updateCategory: (id: number, category: Partial<Category>) => Promise<boolean>;
   deleteCategory: (id: number) => Promise<boolean>;
   toggleCategoryNavbar: (id: number, show?: boolean) => Promise<boolean>;
+  toggleCategoryTicker: (id: number, show?: boolean) => Promise<boolean>;
   setNavbarCategoriesBulk: (showIds: number[], hideIds: number[]) => Promise<boolean>;
   createPromocode: (promocode: Partial<Promocode>) => Promise<boolean>;
   updatePromocode: (id: number, promocode: Partial<Promocode>) => Promise<boolean>;
@@ -212,6 +218,25 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  const toggleCategoryTicker = async (id: number, show?: boolean) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin_dashboard.php?action=toggle_category_ticker`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, show_in_ticker: show }),
+      });
+      if (response.ok) {
+        await loadCategories();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      setError('Failed to update category ticker visibility');
+      return false;
+    }
+  };
+
   const setNavbarCategoriesBulk = async (showIds: number[], hideIds: number[]) => {
     try {
       const response = await fetch(`${API_BASE_URL}/admin_dashboard.php?action=set_navbar_categories`, {
@@ -332,6 +357,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         updateCategory,
         deleteCategory,
         toggleCategoryNavbar,
+        toggleCategoryTicker,
         setNavbarCategoriesBulk,
         createPromocode,
         updatePromocode,

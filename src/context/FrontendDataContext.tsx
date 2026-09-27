@@ -20,6 +20,11 @@ export interface FrontendCategory {
   parent_name?: string | null;
   parent_slug?: string | null;
   show_in_navbar?: boolean | number;
+  show_in_ticker?: boolean | number;
+  bengali_name?: string | null;
+  image_url?: string | null;
+  badge?: string | null;
+  product_fallback_image?: string | null;
 }
 
 interface FrontendDataContextType {

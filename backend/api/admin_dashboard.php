@@ -107,6 +107,9 @@ function handlePostRequest($db, $action) {
         case 'toggle_category_navbar':
             toggleCategoryNavbar($db);
             break;
+        case 'toggle_category_ticker':
+            toggleCategoryTicker($db);
+            break;
         case 'set_navbar_categories':
             setNavbarCategoriesBulk($db);
             break;
@@ -136,6 +139,9 @@ function handlePutRequest($db, $action) {
             break;
         case 'toggle_category_navbar':
             toggleCategoryNavbar($db);
+            break;
+        case 'toggle_category_ticker':
+            toggleCategoryTicker($db);
             break;
         case 'set_navbar_categories':
             setNavbarCategoriesBulk($db);
@@ -573,41 +579,62 @@ function deleteProduct($db) {
 }
 
 // Category functions
-function ensureCategoryNavbarColumn($db) {
+function ensureCategoryEnhancedColumns($db) {
     static $done = false;
     if ($done) return;
     $done = true;
     try {
-        $check = $db->query("SHOW COLUMNS FROM categories LIKE 'show_in_navbar'");
-        if ($check && $check->rowCount() === 0) {
-            $db->exec("ALTER TABLE categories ADD COLUMN show_in_navbar TINYINT(1) NOT NULL DEFAULT 1");
+        $cols = [
+            'show_in_navbar' => "TINYINT(1) NOT NULL DEFAULT 1",
+            'show_in_ticker' => "TINYINT(1) NOT NULL DEFAULT 1",
+            'bengali_name'   => "VARCHAR(150) NULL DEFAULT NULL COLLATE utf8mb4_unicode_ci",
+            'image_url'      => "VARCHAR(500) NULL DEFAULT NULL",
+            'badge'          => "VARCHAR(50) NULL DEFAULT NULL"
+        ];
+        foreach ($cols as $col => $definition) {
+            $check = $db->query("SHOW COLUMNS FROM categories LIKE '$col'");
+            if ($check && $check->rowCount() === 0) {
+                $db->exec("ALTER TABLE categories ADD COLUMN $col $definition");
+            }
         }
     } catch(Exception $e) {
         // ignore if already exists or restricted
     }
 }
 
+function ensureCategoryNavbarColumn($db) {
+    ensureCategoryEnhancedColumns($db);
+}
+
 function getCategories($db) {
     try {
-        ensureCategoryNavbarColumn($db);
-        $query = "SELECT c.*, (SELECT COUNT(*) FROM products WHERE category_id = c.id) as product_count, p.name as parent_name FROM categories c LEFT JOIN categories p ON c.parent_id = p.id ORDER BY c.parent_id IS NULL DESC, c.name ASC";
+        ensureCategoryEnhancedColumns($db);
+        $query = "SELECT c.*, 
+                  (SELECT COUNT(*) FROM products WHERE category_id = c.id) as product_count, 
+                  p.name as parent_name,
+                  (SELECT pi.image_url 
+                   FROM products pr 
+                   LEFT JOIN product_images pi ON pi.product_id = pr.id 
+                   WHERE (pr.category_id = c.id OR pr.category_id = c.parent_id) 
+                     AND pi.image_url IS NOT NULL 
+                   ORDER BY pr.id DESC LIMIT 1) as product_fallback_image
+                  FROM categories c 
+                  LEFT JOIN categories p ON c.parent_id = p.id 
+                  ORDER BY c.parent_id IS NULL DESC, c.name ASC";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         foreach ($categories as &$cat) {
-            if (!isset($cat['show_in_navbar']) || $cat['show_in_navbar'] === null) {
-                $cat['show_in_navbar'] = 1;
-            } else {
-                $cat['show_in_navbar'] = (int)$cat['show_in_navbar'];
-            }
+            $cat['show_in_navbar'] = isset($cat['show_in_navbar']) && $cat['show_in_navbar'] !== null ? (int)$cat['show_in_navbar'] : 1;
+            $cat['show_in_ticker'] = isset($cat['show_in_ticker']) && $cat['show_in_ticker'] !== null ? (int)$cat['show_in_ticker'] : 1;
         }
         
         http_response_code(200);
-        echo json_encode($categories);
+        echo json_encode($categories, JSON_UNESCAPED_UNICODE);
     } catch(PDOException $exception) {
         http_response_code(500);
-        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()], JSON_UNESCAPED_UNICODE);
     }
 }
 
@@ -621,12 +648,17 @@ function createCategory($db) {
     }
     
     try {
-        ensureCategoryNavbarColumn($db);
+        ensureCategoryEnhancedColumns($db);
         $baseSlug = !empty($data->slug) ? generateSafeSlug($data->slug, 'cat') : generateSafeSlug($data->name, 'cat');
         $slug = getUniqueCategorySlug($db, $baseSlug);
         $show_in_navbar = isset($data->show_in_navbar) ? ($data->show_in_navbar ? 1 : 0) : 1;
+        $show_in_ticker = isset($data->show_in_ticker) ? ($data->show_in_ticker ? 1 : 0) : 1;
+        $bengali_name = isset($data->bengali_name) ? trim($data->bengali_name) : null;
+        $image_url = isset($data->image_url) ? trim($data->image_url) : null;
+        $badge = isset($data->badge) ? trim($data->badge) : null;
         
-        $query = "INSERT INTO categories (name, slug, description, parent_id, show_in_navbar) VALUES (:name, :slug, :description, :parent_id, :show_in_navbar)";
+        $query = "INSERT INTO categories (name, slug, description, parent_id, show_in_navbar, show_in_ticker, bengali_name, image_url, badge) 
+                  VALUES (:name, :slug, :description, :parent_id, :show_in_navbar, :show_in_ticker, :bengali_name, :image_url, :badge)";
         
         $stmt = $db->prepare($query);
         $stmt->bindParam(':name', $data->name);
@@ -634,6 +666,10 @@ function createCategory($db) {
         $stmt->bindParam(':description', $data->description);
         $stmt->bindParam(':parent_id', $data->parent_id);
         $stmt->bindParam(':show_in_navbar', $show_in_navbar, PDO::PARAM_INT);
+        $stmt->bindParam(':show_in_ticker', $show_in_ticker, PDO::PARAM_INT);
+        $stmt->bindParam(':bengali_name', $bengali_name);
+        $stmt->bindParam(':image_url', $image_url);
+        $stmt->bindParam(':badge', $badge);
         $stmt->execute();
         
         http_response_code(201);
@@ -654,7 +690,7 @@ function updateCategory($db) {
     }
     
     try {
-        ensureCategoryNavbarColumn($db);
+        ensureCategoryEnhancedColumns($db);
         if (isset($data->name)) {
             $baseSlug = !empty($data->slug) ? generateSafeSlug($data->slug, 'cat') : generateSafeSlug($data->name, 'cat');
             $slug = getUniqueCategorySlug($db, $baseSlug, $data->id);
@@ -663,8 +699,22 @@ function updateCategory($db) {
         }
         
         $show_in_navbar = isset($data->show_in_navbar) ? ($data->show_in_navbar ? 1 : 0) : 1;
+        $show_in_ticker = isset($data->show_in_ticker) ? ($data->show_in_ticker ? 1 : 0) : 1;
+        $bengali_name = isset($data->bengali_name) ? trim($data->bengali_name) : null;
+        $image_url = isset($data->image_url) ? trim($data->image_url) : null;
+        $badge = isset($data->badge) ? trim($data->badge) : null;
         
-        $query = "UPDATE categories SET name = :name, slug = :slug, description = :description, parent_id = :parent_id, show_in_navbar = :show_in_navbar WHERE id = :id";
+        $query = "UPDATE categories 
+                  SET name = :name, 
+                      slug = :slug, 
+                      description = :description, 
+                      parent_id = :parent_id, 
+                      show_in_navbar = :show_in_navbar,
+                      show_in_ticker = :show_in_ticker,
+                      bengali_name = :bengali_name,
+                      image_url = :image_url,
+                      badge = :badge
+                  WHERE id = :id";
         
         $stmt = $db->prepare($query);
         $stmt->bindParam(':name', $data->name);
@@ -672,6 +722,10 @@ function updateCategory($db) {
         $stmt->bindParam(':description', $data->description);
         $stmt->bindParam(':parent_id', $data->parent_id);
         $stmt->bindParam(':show_in_navbar', $show_in_navbar, PDO::PARAM_INT);
+        $stmt->bindParam(':show_in_ticker', $show_in_ticker, PDO::PARAM_INT);
+        $stmt->bindParam(':bengali_name', $bengali_name);
+        $stmt->bindParam(':image_url', $image_url);
+        $stmt->bindParam(':badge', $badge);
         $stmt->bindParam(':id', $data->id, PDO::PARAM_INT);
         $stmt->execute();
         
@@ -690,12 +744,12 @@ function toggleCategoryNavbar($db) {
     
     if (!$id) {
         http_response_code(400);
-        echo json_encode(["message" => "Category ID is required"]);
+        echo json_encode(["message" => "Category ID is required"], JSON_UNESCAPED_UNICODE);
         return;
     }
     
     try {
-        ensureCategoryNavbarColumn($db);
+        ensureCategoryEnhancedColumns($db);
         
         if ($show === null) {
             $query = "UPDATE categories SET show_in_navbar = IF(COALESCE(show_in_navbar, 1) = 1, 0, 1) WHERE id = :id";
@@ -710,21 +764,68 @@ function toggleCategoryNavbar($db) {
             $stmt->execute();
         }
         
-        $stmt2 = $db->prepare("SELECT id, name, show_in_navbar FROM categories WHERE id = :id");
+        $stmt2 = $db->prepare("SELECT id, name, show_in_navbar, show_in_ticker FROM categories WHERE id = :id");
         $stmt2->execute([':id' => $id]);
         $updated = $stmt2->fetch(PDO::FETCH_ASSOC);
         if ($updated) {
             $updated['show_in_navbar'] = (int)$updated['show_in_navbar'];
+            $updated['show_in_ticker'] = isset($updated['show_in_ticker']) ? (int)$updated['show_in_ticker'] : 1;
         }
         
         http_response_code(200);
         echo json_encode([
             "message" => "Navbar visibility updated successfully",
             "category" => $updated
-        ]);
+        ], JSON_UNESCAPED_UNICODE);
     } catch(PDOException $exception) {
         http_response_code(500);
-        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()], JSON_UNESCAPED_UNICODE);
+    }
+}
+
+function toggleCategoryTicker($db) {
+    $data = json_decode(file_get_contents("php://input"));
+    $id = isset($data->id) ? (int)$data->id : (isset($_GET['id']) ? (int)$_GET['id'] : null);
+    $show = isset($data->show_in_ticker) ? ($data->show_in_ticker ? 1 : 0) : null;
+    
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(["message" => "Category ID is required"], JSON_UNESCAPED_UNICODE);
+        return;
+    }
+    
+    try {
+        ensureCategoryEnhancedColumns($db);
+        
+        if ($show === null) {
+            $query = "UPDATE categories SET show_in_ticker = IF(COALESCE(show_in_ticker, 1) = 1, 0, 1) WHERE id = :id";
+            $stmt = $db->prepare($query);
+            $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmt->execute();
+        } else {
+            $query = "UPDATE categories SET show_in_ticker = :show WHERE id = :id";
+            $stmt = $db->prepare($query);
+            $stmt->bindParam(':show', $show, PDO::PARAM_INT);
+            $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmt->execute();
+        }
+        
+        $stmt2 = $db->prepare("SELECT id, name, show_in_navbar, show_in_ticker FROM categories WHERE id = :id");
+        $stmt2->execute([':id' => $id]);
+        $updated = $stmt2->fetch(PDO::FETCH_ASSOC);
+        if ($updated) {
+            $updated['show_in_navbar'] = (int)$updated['show_in_navbar'];
+            $updated['show_in_ticker'] = (int)$updated['show_in_ticker'];
+        }
+        
+        http_response_code(200);
+        echo json_encode([
+            "message" => "Ticker visibility updated successfully",
+            "category" => $updated
+        ], JSON_UNESCAPED_UNICODE);
+    } catch(PDOException $exception) {
+        http_response_code(500);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()], JSON_UNESCAPED_UNICODE);
     }
 }
 
@@ -856,24 +957,78 @@ function syncFrontendCategories($db) {
     ];
 
     try {
+        ensureCategoryEnhancedColumns($db);
         $added = 0;
         $total = 0;
 
+        $metaMap = [
+            'panjabi'     => ['bengali' => 'পাঞ্জাবি', 'badge' => 'Trending', 'image' => 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=300&q=80'],
+            'saree'       => ['bengali' => 'শাড়ি', 'badge' => 'Handloom', 'image' => 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=300&q=80'],
+            'polo'        => ['bengali' => 'পোলো শার্ট', 'badge' => 'New', 'image' => 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?auto=format&fit=crop&w=300&q=80'],
+            'kabli'       => ['bengali' => 'কাবলি সেট', 'badge' => 'Festive', 'image' => 'https://images.unsplash.com/photo-1603252109303-2751441dd157?auto=format&fit=crop&w=300&q=80'],
+            'blazer'      => ['bengali' => 'ব্লেজার ও স্যুট', 'badge' => 'Bespoke', 'image' => 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=300&q=80'],
+            'shirt'       => ['bengali' => 'শার্ট', 'badge' => 'Premium', 'image' => 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=300&q=80'],
+            'kurti'       => ['bengali' => 'কুর্তি সেট', 'badge' => 'Ethnic', 'image' => 'https://images.unsplash.com/photo-1583391733975-08149e91024b?auto=format&fit=crop&w=300&q=80'],
+            'salwar'      => ['bengali' => 'সালোয়ার কামিজ', 'badge' => 'Belwari', 'image' => 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=300&q=80'],
+            'western'     => ['bengali' => 'ওয়েস্টার্ন টপস', 'badge' => 'Vogue', 'image' => 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=300&q=80'],
+            'chino'       => ['bengali' => 'চীনোস ট্রাউজার', 'badge' => 'Tailored', 'image' => 'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?auto=format&fit=crop&w=300&q=80'],
+            'pant'        => ['bengali' => 'প্যান্ট', 'badge' => 'Comfort', 'image' => 'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?auto=format&fit=crop&w=300&q=80'],
+            'jeans'       => ['bengali' => 'ডেনিম জিন্স', 'badge' => 'Denim', 'image' => 'https://images.unsplash.com/photo-1542272604-780c96856592?auto=format&fit=crop&w=300&q=80'],
+            't-shirt'     => ['bengali' => 'টি-শার্ট', 'badge' => 'Heavyweight', 'image' => 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=300&q=80'],
+            'waistcoat'   => ['bengali' => 'ওয়েস্টকোট', 'badge' => 'Festive', 'image' => 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=300&q=80'],
+            'fragrance'   => ['bengali' => 'পারফিউম ও আতর', 'badge' => 'Oud', 'image' => 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?auto=format&fit=crop&w=300&q=80'],
+            'belt'        => ['bengali' => 'বেল্ট ও ওয়ালেট', 'badge' => 'Leather', 'image' => 'https://images.unsplash.com/photo-1627123424574-724758594e93?auto=format&fit=crop&w=300&q=80'],
+            'wallet'      => ['bengali' => 'ওয়ালেট', 'badge' => 'Leather', 'image' => 'https://images.unsplash.com/photo-1627123424574-724758594e93?auto=format&fit=crop&w=300&q=80'],
+            'men'         => ['bengali' => 'পুরুষদের পোশাক', 'badge' => 'Men', 'image' => 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=300&q=80'],
+            'women'       => ['bengali' => 'নারীদের পোশাক', 'badge' => 'Women', 'image' => 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=300&q=80'],
+            'summer'      => ['bengali' => 'সামার কালেকশন', 'badge' => 'Summer', 'image' => 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&w=300&q=80'],
+            'belwari'     => ['bengali' => 'বেলওয়ারী ঐতিহ্য', 'badge' => 'Heritage', 'image' => 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=300&q=80'],
+            'new-in'      => ['bengali' => 'নতুন আগমন', 'badge' => 'New', 'image' => 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=300&q=80'],
+            'black'       => ['bengali' => 'ব্ল্যাক কালেকশন', 'badge' => 'Luxury', 'image' => 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=300&q=80'],
+            'accessories' => ['bengali' => 'এক্সেসরিজ', 'badge' => 'Accessories', 'image' => 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=300&q=80']
+        ];
+
+        $getMeta = function($str) use ($metaMap) {
+            $lower = strtolower($str);
+            foreach ($metaMap as $key => $m) {
+                if (strpos($lower, $key) !== false) {
+                    return $m;
+                }
+            }
+            return ['bengali' => null, 'badge' => null, 'image' => null];
+        };
+
         foreach ($catalogStructure as $parentData) {
             // Check if parent category exists by slug or name
-            $checkParent = $db->prepare("SELECT id FROM categories WHERE slug = :slug OR name = :name LIMIT 1");
+            $checkParent = $db->prepare("SELECT id, bengali_name, image_url, badge FROM categories WHERE slug = :slug OR name = :name LIMIT 1");
             $checkParent->bindParam(':slug', $parentData['slug']);
             $checkParent->bindParam(':name', $parentData['name']);
             $checkParent->execute();
             $parent = $checkParent->fetch(PDO::FETCH_ASSOC);
 
+            $parentMeta = $getMeta($parentData['name'] . ' ' . $parentData['slug']);
+
             if ($parent) {
                 $parentId = $parent['id'];
+                // Backfill meta if missing
+                if (empty($parent['bengali_name']) || empty($parent['image_url'])) {
+                    $upd = $db->prepare("UPDATE categories SET bengali_name = COALESCE(bengali_name, :bengali), image_url = COALESCE(image_url, :img), badge = COALESCE(badge, :badge) WHERE id = :id");
+                    $upd->execute([
+                        ':bengali' => $parentMeta['bengali'],
+                        ':img'     => $parentMeta['image'],
+                        ':badge'   => $parentMeta['badge'],
+                        ':id'      => $parentId
+                    ]);
+                }
             } else {
-                $insertParent = $db->prepare("INSERT INTO categories (name, slug, description, parent_id) VALUES (:name, :slug, :description, NULL)");
+                $insertParent = $db->prepare("INSERT INTO categories (name, slug, description, parent_id, show_in_navbar, show_in_ticker, bengali_name, image_url, badge) 
+                                              VALUES (:name, :slug, :description, NULL, 1, 1, :bengali, :img, :badge)");
                 $insertParent->bindParam(':name', $parentData['name']);
                 $insertParent->bindParam(':slug', $parentData['slug']);
                 $insertParent->bindParam(':description', $parentData['description']);
+                $insertParent->bindParam(':bengali', $parentMeta['bengali']);
+                $insertParent->bindParam(':img', $parentMeta['image']);
+                $insertParent->bindParam(':badge', $parentMeta['badge']);
                 $insertParent->execute();
                 $parentId = $db->lastInsertId();
                 $added++;
@@ -885,23 +1040,39 @@ function syncFrontendCategories($db) {
                 $total++;
                 $baseSlug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $subName)));
                 $subSlug = $parentData['slug'] . '-' . $baseSlug;
+                $subMeta = $getMeta($subName . ' ' . $subSlug);
 
                 // Check if subcategory already exists under this parent
-                $checkSub = $db->prepare("SELECT id FROM categories WHERE (parent_id = :parent_id AND name = :name) OR slug = :slug LIMIT 1");
+                $checkSub = $db->prepare("SELECT id, bengali_name, image_url, badge FROM categories WHERE (parent_id = :parent_id AND name = :name) OR slug = :slug LIMIT 1");
                 $checkSub->bindParam(':parent_id', $parentId);
                 $checkSub->bindParam(':name', $subName);
                 $checkSub->bindParam(':slug', $subSlug);
                 $checkSub->execute();
+                $existingSub = $checkSub->fetch(PDO::FETCH_ASSOC);
 
-                if (!$checkSub->fetch()) {
+                if (!$existingSub) {
                     $desc = $subName . ' in ' . $parentData['name'];
-                    $insertSub = $db->prepare("INSERT INTO categories (name, slug, description, parent_id) VALUES (:name, :slug, :desc, :parent_id)");
+                    $insertSub = $db->prepare("INSERT INTO categories (name, slug, description, parent_id, show_in_navbar, show_in_ticker, bengali_name, image_url, badge) 
+                                              VALUES (:name, :slug, :desc, :parent_id, 1, 1, :bengali, :img, :badge)");
                     $insertSub->bindParam(':name', $subName);
                     $insertSub->bindParam(':slug', $subSlug);
                     $insertSub->bindParam(':desc', $desc);
                     $insertSub->bindParam(':parent_id', $parentId);
+                    $insertSub->bindParam(':bengali', $subMeta['bengali']);
+                    $insertSub->bindParam(':img', $subMeta['image']);
+                    $insertSub->bindParam(':badge', $subMeta['badge']);
                     $insertSub->execute();
                     $added++;
+                } else {
+                    if (empty($existingSub['bengali_name']) || empty($existingSub['image_url'])) {
+                        $updSub = $db->prepare("UPDATE categories SET bengali_name = COALESCE(bengali_name, :bengali), image_url = COALESCE(image_url, :img), badge = COALESCE(badge, :badge) WHERE id = :id");
+                        $updSub->execute([
+                            ':bengali' => $subMeta['bengali'],
+                            ':img'     => $subMeta['image'],
+                            ':badge'   => $subMeta['badge'],
+                            ':id'      => $existingSub['id']
+                        ]);
+                    }
                 }
             }
         }
@@ -912,10 +1083,10 @@ function syncFrontendCategories($db) {
             "message" => "Frontend categories and subcategories synchronized successfully",
             "added" => $added,
             "total" => $total
-        ]);
+        ], JSON_UNESCAPED_UNICODE);
     } catch(PDOException $exception) {
         http_response_code(500);
-        echo json_encode(["message" => "Database error: " . $exception->getMessage()]);
+        echo json_encode(["message" => "Database error: " . $exception->getMessage()], JSON_UNESCAPED_UNICODE);
     }
 }
 
