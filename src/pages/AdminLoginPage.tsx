@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAdmin } from '../context/AdminContext';
 import { ShieldCheck, Lock, Mail, Eye, EyeOff, ArrowLeft, AlertCircle } from 'lucide-react';
+import adminBgImage from '../assets/images/admin_login_bg.jpg';
 
 export const AdminLoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -47,27 +48,36 @@ export const AdminLoginPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 relative flex items-center justify-center p-4 selection:bg-purple-500 selection:text-white">
+    <div className="min-h-screen bg-gray-950 relative flex items-center justify-center p-4 selection:bg-purple-500 selection:text-white overflow-hidden">
+      {/* Fashion Background Image */}
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-1000 scale-105"
+        style={{ backgroundImage: `url(${adminBgImage})` }}
+      />
+
+      {/* Dark gradient & atmospheric luxury overlays */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/85 via-gray-950/80 to-black/90 backdrop-blur-[3px]" />
+
       {/* Background glow effects */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-purple-900/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-blue-900/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-amber-900/15 rounded-full blur-3xl pointer-events-none" />
 
       <div className="max-w-md w-full relative z-10">
         {/* Brand / Title Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 shadow-xl shadow-purple-500/20 mb-4 border border-white/10">
-            <ShieldCheck className="w-7 h-7 text-white" />
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-md mb-3 shadow-xl shadow-black/50">
+            <ShieldCheck className="w-6 h-6 text-amber-300" />
           </div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight">
             Aristo Fashion
           </h1>
-          <p className="text-xs uppercase tracking-widest font-semibold text-gray-400 mt-1.5">
+          <p className="text-xs uppercase tracking-widest font-semibold text-gray-300/80 mt-1.5">
             Management & Operations Portal
           </p>
         </div>
 
         {/* Login Card */}
-        <div className="bg-gray-900/90 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-gray-800">
+        <div className="bg-gray-900/85 backdrop-blur-2xl rounded-2xl p-8 shadow-2xl border border-white/10">
           <div className="mb-6">
             <h2 className="text-xl font-bold text-white tracking-tight">Administrator Login</h2>
             <p className="text-xs text-gray-400 mt-0.5">Enter your verified credentials to access backend control</p>
@@ -130,7 +140,7 @@ export const AdminLoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold py-3 px-4 rounded-xl hover:from-purple-500 hover:to-indigo-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all shadow-lg shadow-purple-600/20 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2"
+              className="w-full mt-2 bg-gray-800 from-gray-700 to-gray-900 text-white font-semibold py-3 px-4 rounded-xl hover:from-gray-700 hover:to-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500/50 transition-all shadow-lg shadow-gray-600/20 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2"
             >
               {isLoading ? (
                 <>
@@ -144,7 +154,7 @@ export const AdminLoginPage: React.FC = () => {
           </form>
 
           {/* Quick-fill helper for convenience */}
-          <div className="mt-5 pt-4 border-t border-gray-800/80 text-center">
+          {/*  <div className="mt-5 pt-4 border-t border-gray-800/80 text-center">
             <button
               type="button"
               onClick={() => {
@@ -155,7 +165,7 @@ export const AdminLoginPage: React.FC = () => {
             >
               Autofill Primary Admin Credentials
             </button>
-          </div>
+          </div> */}
 
           {/* Back to Site */}
           <div className="mt-4 text-center">

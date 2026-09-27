@@ -1,19 +1,89 @@
-import React, { useState } from 'react';
-import { Mail, MessageCircle, Copy, Check, Sparkles, Tag, ShieldCheck } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Mail, MessageCircle, Copy, Check, Tag } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
+import { useFrontendData } from '../context/FrontendDataContext';
+import { DEFAULT_VOUCHER_CONFIG, VoucherConfig } from './admin/VoucherManagement';
 
 export const VipClubVoucher: React.FC = () => {
   const { addToast } = useShop();
+  const { settings } = useFrontendData();
   const [email, setEmail] = useState('');
   const [copied, setCopied] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [updateTick, setUpdateTick] = useState(0);
 
-  const promoCode = 'WELCOME250';
+  // Listen for real-time updates dispatched by Admin Dashboard
+  useEffect(() => {
+    const handleUpdate = () => setUpdateTick(prev => prev + 1);
+    window.addEventListener('voucher-config-updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('voucher-config-updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
+  // Compute active dynamic configuration
+  const activeConfig: VoucherConfig = useMemo(() => {
+    // 1. Database settings
+    const dbEnabled = settings['voucher_enabled'];
+    const dbBadge = settings['voucher_badge'];
+    const dbBadgeBn = settings['voucher_badge_bn'];
+    const dbHeading = settings['voucher_heading'];
+    const dbDesc = settings['voucher_description'];
+    const dbCode = settings['voucher_code'];
+    const dbDiscount = settings['voucher_discount_display'];
+    const dbMinOrder = settings['voucher_min_order_display'];
+    const dbNewsletterTitle = settings['voucher_newsletter_heading'];
+    const dbNewsletterSuccess = settings['voucher_newsletter_success'];
+    const dbWhatsappNum = settings['voucher_whatsapp_number'];
+    const dbWhatsappTxt = settings['voucher_whatsapp_text'];
+    const dbWhatsappBtn = settings['voucher_whatsapp_btn_text'];
+    const dbAccent = settings['voucher_accent_color'];
+
+    // 2. localStorage fallback for instant client sync
+    let localConfig: Partial<VoucherConfig> = {};
+    const savedLocal = localStorage.getItem('aristo_voucher_config');
+    if (savedLocal) {
+      try {
+        localConfig = JSON.parse(savedLocal);
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    return {
+      enabled: dbEnabled !== undefined ? dbEnabled !== '0' : (localConfig.enabled !== undefined ? localConfig.enabled : DEFAULT_VOUCHER_CONFIG.enabled),
+      badge: dbBadge !== undefined ? dbBadge : (localConfig.badge !== undefined ? localConfig.badge : DEFAULT_VOUCHER_CONFIG.badge),
+      badgeBn: dbBadgeBn !== undefined ? dbBadgeBn : (localConfig.badgeBn !== undefined ? localConfig.badgeBn : DEFAULT_VOUCHER_CONFIG.badgeBn),
+      heading: dbHeading !== undefined ? dbHeading : (localConfig.heading !== undefined ? localConfig.heading : DEFAULT_VOUCHER_CONFIG.heading),
+      description: dbDesc !== undefined ? dbDesc : (localConfig.description !== undefined ? localConfig.description : DEFAULT_VOUCHER_CONFIG.description),
+      code: dbCode !== undefined ? dbCode : (localConfig.code !== undefined ? localConfig.code : DEFAULT_VOUCHER_CONFIG.code),
+      discountDisplay: dbDiscount || localConfig.discountDisplay || DEFAULT_VOUCHER_CONFIG.discountDisplay,
+      minOrderDisplay: dbMinOrder || localConfig.minOrderDisplay || DEFAULT_VOUCHER_CONFIG.minOrderDisplay,
+      newsletterHeading: dbNewsletterTitle !== undefined ? dbNewsletterTitle : (localConfig.newsletterHeading !== undefined ? localConfig.newsletterHeading : DEFAULT_VOUCHER_CONFIG.newsletterHeading),
+      newsletterSuccessMsg: dbNewsletterSuccess !== undefined ? dbNewsletterSuccess : (localConfig.newsletterSuccessMsg !== undefined ? localConfig.newsletterSuccessMsg : DEFAULT_VOUCHER_CONFIG.newsletterSuccessMsg),
+      whatsappNumber: dbWhatsappNum || localConfig.whatsappNumber || DEFAULT_VOUCHER_CONFIG.whatsappNumber,
+      whatsappText: dbWhatsappTxt !== undefined ? dbWhatsappTxt : (localConfig.whatsappText !== undefined ? localConfig.whatsappText : DEFAULT_VOUCHER_CONFIG.whatsappText),
+      whatsappButtonText: dbWhatsappBtn || localConfig.whatsappButtonText || DEFAULT_VOUCHER_CONFIG.whatsappButtonText,
+      accentColor: dbAccent || localConfig.accentColor || DEFAULT_VOUCHER_CONFIG.accentColor,
+    };
+  }, [settings, updateTick]);
+
+  // If disabled from the shop admin dashboard, hide section
+  if (!activeConfig.enabled) {
+    return null;
+  }
+
+  const promoCode = activeConfig.code || 'WELCOME250';
+  const cleanPhone = (activeConfig.whatsappNumber || '8801572491828').replace(/[^0-9]/g, '');
+  const encodedMsg = encodeURIComponent(activeConfig.whatsappText || 'Hi Aristo Fashion, I need help with sizing and orders.');
+  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMsg}`;
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(promoCode);
     setCopied(true);
-    addToast('Coupon WELCOME250 copied to clipboard!', 'success');
+    addToast(`Coupon ${promoCode} copied to clipboard!`, 'success');
     setTimeout(() => setCopied(false), 3000);
   };
 
@@ -24,35 +94,37 @@ export const VipClubVoucher: React.FC = () => {
       return;
     }
     setIsSubmitted(true);
-    addToast('Welcome to Blucheez VIP Club! ৳250 discount voucher activated.', 'success');
+    addToast(`Welcome to Aristo VIP Club! ${activeConfig.discountDisplay} discount voucher activated.`, 'success');
   };
 
   return (
     <section className="w-full max-w-7xl md:max-w-none mx-auto px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16">
       <div className="bg-neutral-900 text-white border border-neutral-800 p-6 sm:p-10 lg:p-12 relative overflow-hidden">
-        
+
         {/* Subtle Background Glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-gradient-to-r from-neutral-900 via-neutral-800/50 to-neutral-900 pointer-events-none" />
 
         <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          
+
           {/* Left: Voucher Offer */}
           <div className="lg:col-span-7 space-y-3">
             <div className="flex items-center space-x-2">
               <span className="bg-amber-400 text-black text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5">
-                Limited Time Promo
+                {activeConfig.badge || 'Limited Time Promo'}
               </span>
-              <span className="text-xs text-neutral-400 font-medium">
-                বিশেষ ছাড় ভাউচার
-              </span>
+              {activeConfig.badgeBn && (
+                <span className="text-xs text-neutral-400 font-medium">
+                  {activeConfig.badgeBn}
+                </span>
+              )}
             </div>
 
             <h3 className="text-2xl sm:text-3xl font-extrabold font-serif tracking-tight text-white">
-              Enjoy ৳250 OFF On Your First Order
+              {activeConfig.heading || 'Enjoy ৳250 OFF On Your First Order'}
             </h3>
 
             <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed max-w-xl">
-              Use voucher code <span className="text-amber-300 font-bold font-mono">WELCOME250</span> at checkout on orders above ৳2,000. Plus receive early private sale invites and festive lookbooks.
+              {activeConfig.description}
             </p>
 
             {/* Voucher Coupon Box */}
@@ -87,9 +159,8 @@ export const VipClubVoucher: React.FC = () => {
           {/* Right: Newsletter Input & WhatsApp Concierge */}
           <div className="lg:col-span-5 bg-black/50 p-5 sm:p-6 border border-neutral-800 space-y-4">
             <div className="flex items-center space-x-2 text-neutral-200">
-              <Sparkles className="w-4 h-4 text-amber-400" />
               <span className="text-xs font-bold uppercase tracking-wider">
-                Join VIP Club & Get WhatsApp Updates
+                {activeConfig.newsletterHeading || 'Join VIP Club & Get WhatsApp Updates'}
               </span>
             </div>
 
@@ -97,7 +168,7 @@ export const VipClubVoucher: React.FC = () => {
               <div className="bg-emerald-950/60 border border-emerald-500/40 p-4 text-center text-xs text-emerald-300 space-y-1">
                 <p className="font-bold">✨ You're Subscribed!</p>
                 <p className="text-[11px] text-emerald-400/80">
-                  We've sent your ৳250 discount voucher to {email}.
+                  {activeConfig.newsletterSuccessMsg} {email}.
                 </p>
               </div>
             ) : (
@@ -126,18 +197,14 @@ export const VipClubVoucher: React.FC = () => {
 
             {/* Quick WhatsApp Concierge Link */}
             <div className="pt-2 border-t border-neutral-800/80 flex items-center justify-between text-xs text-neutral-400">
-              <div className="flex items-center space-x-2">
-                <ShieldCheck className="w-4 h-4 text-amber-400" />
-                <span className="text-[11px]">Instant size consultation available</span>
-              </div>
               <a
-                href="https://wa.me/8801700000000?text=Hi%20Blucheez%20Concierge,%20I%20need%20help%20with%20sizing%20and%20orders."
+                href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-emerald-400 hover:text-emerald-300 font-bold inline-flex items-center space-x-1 transition-colors"
               >
                 <MessageCircle className="w-3.5 h-3.5" />
-                <span>WhatsApp Us</span>
+                <span>{activeConfig.whatsappButtonText || 'WhatsApp'}</span>
               </a>
             </div>
 
@@ -149,3 +216,4 @@ export const VipClubVoucher: React.FC = () => {
     </section>
   );
 };
+
