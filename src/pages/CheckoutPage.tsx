@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { 
-  ShieldCheck, 
-  Truck, 
-  Phone, 
-  User, 
-  ArrowRight, 
-  AlertCircle, 
+import {
+  ShieldCheck,
+  Truck,
+  Phone,
+  User,
+  ArrowRight,
+  AlertCircle,
   ChevronRight,
   Sparkles,
   ShoppingBag,
@@ -24,20 +24,20 @@ export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { deliveryFees } = useFrontendData();
-  const { 
-    cart, 
+  const {
+    cart,
     products,
     addToCart,
     updateCartQuantity,
     removeFromCart,
-    orderNote, 
-    appliedCoupon, 
+    orderNote,
+    appliedCoupon,
     applyCoupon,
     removeCoupon,
-    isGiftPackaging, 
+    isGiftPackaging,
     setIsGiftPackaging,
     confirmOrder,
-    addToast 
+    addToast
   } = useShop();
 
   // Handle direct product payload if passed through state or URL params
@@ -45,10 +45,10 @@ export const CheckoutPage: React.FC = () => {
     const state = location.state as { directProduct?: any; selectedSize?: string; selectedColor?: string; quantity?: number } | null;
     if (state?.directProduct && cart.length === 0) {
       addToCart(
-        state.directProduct, 
-        state.selectedSize || state.directProduct.sizes[0] || 'Standard', 
-        state.selectedColor || state.directProduct.colors[0]?.name || 'Standard', 
-        state.quantity || 1, 
+        state.directProduct,
+        state.selectedSize || state.directProduct.sizes[0] || 'Standard',
+        state.selectedColor || state.directProduct.colors[0]?.name || 'Standard',
+        state.quantity || 1,
         false
       );
     }
@@ -93,7 +93,7 @@ export const CheckoutPage: React.FC = () => {
   const deliveryZone = isDhaka ? 'Inside Dhaka' : 'Outside Dhaka';
   const freeShippingMin = deliveryFees.freeShippingMinimum || 3000;
   const isFreeDelivery = subtotal >= freeShippingMin;
-  
+
   let baseDeliveryFee = isDhaka ? (deliveryFees.insideDhaka || 60) : (deliveryFees.outsideDhaka || 120);
   if (deliverySpeed === 'express' && isDhaka) {
     baseDeliveryFee = 100; // Same Day / 24h Express
@@ -198,7 +198,7 @@ export const CheckoutPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-neutral-50/60 pb-20">
-      
+
       {/* Breadcrumb Bar */}
       <div className="bg-white border-b border-neutral-200">
         <div className="w-full max-w-7xl md:max-w-none px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 mx-auto py-3">
@@ -213,7 +213,7 @@ export const CheckoutPage: React.FC = () => {
       </div>
 
       <div className="w-full max-w-7xl md:max-w-none px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 mx-auto py-8 sm:py-12">
-        
+
         {/* Page Heading & Trust Banner */}
         <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
@@ -256,8 +256,8 @@ export const CheckoutPage: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
               {products.slice(0, 4).map(p => (
-                <div 
-                  key={p.id} 
+                <div
+                  key={p.id}
                   onClick={() => addToCart(p, p.sizes[0] || 'Standard', p.colors[0]?.name || 'Standard', 1, false)}
                   className="p-3 border border-neutral-200 rounded-xl hover:border-black transition-all cursor-pointer flex items-center space-x-3 group bg-neutral-50 hover:bg-white"
                 >
@@ -286,10 +286,10 @@ export const CheckoutPage: React.FC = () => {
           </div>
         ) : (
           <form onSubmit={handleOrderSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
-            
+
             {/* LEFT: Customer, Delivery, & Logistics Form (7 cols on lg) */}
             <div className="lg:col-span-7 space-y-6">
-              
+
               {/* Step 1: Customer Contact Info */}
               <div className="bg-white border border-neutral-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
                 <div className="flex items-center space-x-2.5 border-b border-neutral-100 pb-3">
@@ -314,9 +314,8 @@ export const CheckoutPage: React.FC = () => {
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder="e.g. Asif Chowdhury / আরিফ চৌধুরী"
-                        className={`w-full text-xs sm:text-sm p-3 pl-10 border rounded-xl focus:outline-none focus:border-black ${
-                          formErrors.fullName ? 'border-red-500 bg-red-50/20' : 'border-neutral-300'
-                        }`}
+                        className={`w-full text-xs sm:text-sm p-3 pl-10 border rounded-xl focus:outline-none focus:border-black ${formErrors.fullName ? 'border-red-500 bg-red-50/20' : 'border-neutral-300'
+                          }`}
                       />
                       <User className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
                     </div>
@@ -340,9 +339,8 @@ export const CheckoutPage: React.FC = () => {
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         placeholder="017XXXXXXXX"
-                        className={`w-full text-xs sm:text-sm p-3 pl-10 border rounded-xl font-mono focus:outline-none focus:border-black ${
-                          formErrors.phone ? 'border-red-500 bg-red-50/20' : 'border-neutral-300'
-                        }`}
+                        className={`w-full text-xs sm:text-sm p-3 pl-10 border rounded-xl font-mono focus:outline-none focus:border-black ${formErrors.phone ? 'border-red-500 bg-red-50/20' : 'border-neutral-300'
+                          }`}
                       />
                       <Phone className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
                     </div>
@@ -446,9 +444,8 @@ export const CheckoutPage: React.FC = () => {
                           });
                         }
                       }}
-                      className={`w-full text-xs sm:text-sm p-3 border rounded-xl bg-white focus:outline-none focus:border-black cursor-pointer font-medium ${
-                        formErrors.thana ? 'border-red-500 bg-red-50/20' : 'border-neutral-300'
-                      }`}
+                      className={`w-full text-xs sm:text-sm p-3 border rounded-xl bg-white focus:outline-none focus:border-black cursor-pointer font-medium ${formErrors.thana ? 'border-red-500 bg-red-50/20' : 'border-neutral-300'
+                        }`}
                     >
                       <option value="">-- Select Thana / Upazila ({availableThanas.length} options) --</option>
                       {availableThanas.map((th) => (
@@ -494,9 +491,8 @@ export const CheckoutPage: React.FC = () => {
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       placeholder="House / Flat No, Road No, Sector / Village, Area Landmark (e.g. House 24, Road 11, Block D, Banani, Dhaka)"
-                      className={`w-full text-xs sm:text-sm p-3 border rounded-xl focus:outline-none focus:border-black ${
-                        formErrors.address ? 'border-red-500 bg-red-50/20' : 'border-neutral-300'
-                      }`}
+                      className={`w-full text-xs sm:text-sm p-3 border rounded-xl focus:outline-none focus:border-black ${formErrors.address ? 'border-red-500 bg-red-50/20' : 'border-neutral-300'
+                        }`}
                     />
                     {formErrors.address && (
                       <p className="text-[11px] text-red-600 mt-1 flex items-center">
@@ -512,11 +508,10 @@ export const CheckoutPage: React.FC = () => {
                       Delivery Speed Option
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div 
+                      <div
                         onClick={() => setDeliverySpeed('standard')}
-                        className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start space-x-3 ${
-                          deliverySpeed === 'standard' ? 'border-black bg-neutral-50 ring-1 ring-black' : 'border-neutral-200 bg-white hover:border-neutral-300'
-                        }`}
+                        className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start space-x-3 ${deliverySpeed === 'standard' ? 'border-black bg-neutral-50 ring-1 ring-black' : 'border-neutral-200 bg-white hover:border-neutral-300'
+                          }`}
                       >
                         <div className={`w-4 h-4 rounded-full mt-0.5 border flex items-center justify-center ${deliverySpeed === 'standard' ? 'border-black bg-black text-white' : 'border-neutral-300'}`}>
                           {deliverySpeed === 'standard' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
@@ -533,11 +528,10 @@ export const CheckoutPage: React.FC = () => {
                       </div>
 
                       {isDhaka && (
-                        <div 
+                        <div
                           onClick={() => setDeliverySpeed('express')}
-                          className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start space-x-3 ${
-                            deliverySpeed === 'express' ? 'border-black bg-neutral-50 ring-1 ring-black' : 'border-neutral-200 bg-white hover:border-neutral-300'
-                          }`}
+                          className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start space-x-3 ${deliverySpeed === 'express' ? 'border-black bg-neutral-50 ring-1 ring-black' : 'border-neutral-200 bg-white hover:border-neutral-300'
+                            }`}
                         >
                           <div className={`w-4 h-4 rounded-full mt-0.5 border flex items-center justify-center ${deliverySpeed === 'express' ? 'border-black bg-black text-white' : 'border-neutral-300'}`}>
                             {deliverySpeed === 'express' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
@@ -545,7 +539,6 @@ export const CheckoutPage: React.FC = () => {
                           <div className="flex-1 text-xs">
                             <div className="flex justify-between font-bold text-neutral-900">
                               <span className="flex items-center">
-                                <Sparkles className="w-3 h-3 mr-1 text-neutral-900" />
                                 Dhaka Same-Day Express
                               </span>
                               <span>৳100</span>
@@ -584,11 +577,10 @@ export const CheckoutPage: React.FC = () => {
                           key={c}
                           type="button"
                           onClick={() => setSelectedCourier(c)}
-                          className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
-                            selectedCourier === c
-                              ? 'border-black bg-neutral-900 text-white shadow-xs'
-                              : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400'
-                          }`}
+                          className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${selectedCourier === c
+                            ? 'border-black bg-neutral-900 text-white shadow-xs'
+                            : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400'
+                            }`}
                         >
                           {c}
                         </button>
@@ -648,9 +640,9 @@ export const CheckoutPage: React.FC = () => {
 
             {/* RIGHT: Order Summary, Items Review, & Confirmation Button (5 cols on lg) */}
             <div className="lg:col-span-5 space-y-6">
-              
+
               <div className="bg-white border border-neutral-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-5 sticky top-32">
-                
+
                 <div className="flex items-center justify-between border-b border-neutral-200 pb-3">
                   <h3 className="font-sans uppercase tracking-widest font-extrabold text-sm text-neutral-900">
                     Order Summary ({totalItems} Items)
@@ -680,7 +672,7 @@ export const CheckoutPage: React.FC = () => {
                           <span>•</span>
                           <span>{item.selectedColor}</span>
                         </div>
-                        
+
                         {/* Stepper on Checkout */}
                         <div className="flex items-center space-x-2 mt-2">
                           <div className="inline-flex items-center border border-neutral-200 rounded-md bg-white">
@@ -773,15 +765,15 @@ export const CheckoutPage: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
                         <span>Try:</span>
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => { setCouponInput('EID10'); applyCoupon('EID10'); }}
                           className="font-mono font-bold bg-neutral-100 hover:bg-neutral-200 text-neutral-800 px-1.5 py-0.5 rounded cursor-pointer"
                         >
                           EID10
                         </button>
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => { setCouponInput('BLUCHEEZ15'); applyCoupon('BLUCHEEZ15'); }}
                           className="font-mono font-bold bg-neutral-100 hover:bg-neutral-200 text-neutral-800 px-1.5 py-0.5 rounded cursor-pointer"
                         >
@@ -793,11 +785,10 @@ export const CheckoutPage: React.FC = () => {
                 </div>
 
                 {/* Gift Box Addon Option */}
-                <div 
+                <div
                   onClick={() => setIsGiftPackaging(!isGiftPackaging)}
-                  className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
-                    isGiftPackaging ? 'border-black bg-neutral-50' : 'border-neutral-200 bg-white hover:border-neutral-300'
-                  }`}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${isGiftPackaging ? 'border-black bg-neutral-50' : 'border-neutral-200 bg-white hover:border-neutral-300'
+                    }`}
                 >
                   <div className="flex items-center space-x-2.5">
                     <Package className="w-4 h-4 text-neutral-800 flex-shrink-0" />
@@ -809,7 +800,7 @@ export const CheckoutPage: React.FC = () => {
                   <input
                     type="checkbox"
                     checked={isGiftPackaging}
-                    onChange={() => {}}
+                    onChange={() => { }}
                     className="w-4 h-4 rounded text-black accent-black cursor-pointer"
                   />
                 </div>
