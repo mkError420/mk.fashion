@@ -33,9 +33,8 @@ export const BigProductCard: React.FC<BigProductCardProps> = ({ product, rank })
         <img
           src={product.images[0]}
           alt={product.name}
-          className={`w-full h-full object-cover object-top transition-all duration-700 ease-out group-hover:scale-105 ${
-            product.images[1] ? 'group-hover:opacity-0' : ''
-          }`}
+          className={`w-full h-full object-cover object-top transition-all duration-700 ease-out group-hover:scale-105 ${product.images[1] ? 'group-hover:opacity-0' : ''
+            }`}
           loading="lazy"
         />
         {product.images[1] && (
@@ -80,11 +79,10 @@ export const BigProductCard: React.FC<BigProductCardProps> = ({ product, rank })
               toggleWishlist(product.id);
             }}
             title={isFavorited ? 'Remove from Wishlist' : 'Add to Wishlist'}
-            className={`w-9 h-9 flex items-center justify-center transition-all cursor-pointer rounded-none border shadow-md ${
-              isFavorited
-                ? 'bg-black text-white border-black'
-                : 'bg-white/95 hover:bg-black hover:text-white text-neutral-800 border-neutral-200'
-            }`}
+            className={`w-9 h-9 flex items-center justify-center transition-all cursor-pointer rounded-none border shadow-md ${isFavorited
+              ? 'bg-black text-white border-black'
+              : 'bg-white/95 hover:bg-black hover:text-white text-neutral-800 border-neutral-200'
+              }`}
           >
             <Heart className={`w-4 h-4 ${isFavorited ? 'fill-white' : ''}`} />
           </button>
@@ -129,7 +127,6 @@ export const BigProductCard: React.FC<BigProductCardProps> = ({ product, rank })
         {/* Big Editorial Content Overlay (Bottom) */}
         <div className="absolute bottom-0 inset-x-0 p-4 sm:p-6 z-10 text-white">
           <div className="flex items-center space-x-2 text-[10px] uppercase font-bold tracking-widest text-amber-300 mb-1">
-            <Sparkles className="w-3.5 h-3.5" />
             <span>FEATURED SHOWCASE</span>
           </div>
 

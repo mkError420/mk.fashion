@@ -74,7 +74,7 @@ export const FestiveTabShowcase: React.FC = () => {
     .slice(0, activeConfig.productsCount || 12);
 
   return (
-    <section className="w-full max-w-7xl md:max-w-none mx-auto px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16">
+    <section className="w-full max-w-full md:max-w-none mx-auto px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16">
       {/* Optional Top Section Heading */}
       {activeConfig.showcaseHeading && (
         <div className="text-center mb-8 sm:mb-10">

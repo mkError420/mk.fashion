@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useAdminData } from '../../context/AdminDataContext';
 import { useFrontendData } from '../../context/FrontendDataContext';
-import { 
-  Sparkles, 
-  Save, 
-  RotateCcw, 
-  ExternalLink, 
-  Eye, 
-  Sliders, 
-  Type, 
-  Image as ImageIcon, 
-  ShoppingBag, 
-  CheckCircle2, 
+import {
+  Sparkles,
+  Save,
+  RotateCcw,
+  ExternalLink,
+  Eye,
+  Sliders,
+  Type,
+  Image as ImageIcon,
+  ShoppingBag,
+  CheckCircle2,
   AlertCircle,
   Layers,
   ArrowRight
@@ -312,20 +312,20 @@ export const FestiveManagement: React.FC = () => {
       await reloadFrontendSettings();
 
       if (success) {
-        setSaveMessage({ 
-          type: 'success', 
-          text: 'Festive section settings successfully saved & synchronized to database!' 
+        setSaveMessage({
+          type: 'success',
+          text: 'Festive section settings successfully saved & synchronized to database!'
         });
       } else {
-        setSaveMessage({ 
-          type: 'success', 
-          text: 'Saved locally for client preview. Ensure backend settings table is synced.' 
+        setSaveMessage({
+          type: 'success',
+          text: 'Saved locally for client preview. Ensure backend settings table is synced.'
         });
       }
     } catch (err: any) {
-      setSaveMessage({ 
-        type: 'error', 
-        text: err?.message || 'Error saving settings. Saved to local cache as fallback.' 
+      setSaveMessage({
+        type: 'error',
+        text: err?.message || 'Error saving settings. Saved to local cache as fallback.'
       });
     } finally {
       setIsSaving(false);
@@ -343,13 +343,9 @@ export const FestiveManagement: React.FC = () => {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-2 bg-neutral-900 text-white rounded-xl shadow-xs">
-              <Sparkles className="w-5 h-5 text-amber-300" />
-            </span>
             <h1 className="text-xl font-bold text-gray-900">Festive Section Management</h1>
-            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
-              config.enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'
-            }`}>
+            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${config.enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'
+              }`}>
               {config.enabled ? 'Active on Homepage' : 'Hidden / Disabled'}
             </span>
           </div>
@@ -399,19 +395,18 @@ export const FestiveManagement: React.FC = () => {
 
       {/* Save Notification Banner */}
       {saveMessage && (
-        <div className={`p-4 rounded-xl flex items-center gap-3 text-sm animate-fade-in ${
-          saveMessage.type === 'success' 
-            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
-            : 'bg-red-50 text-red-800 border border-red-200'
-        }`}>
+        <div className={`p-4 rounded-xl flex items-center gap-3 text-sm animate-fade-in ${saveMessage.type === 'success'
+          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+          : 'bg-red-50 text-red-800 border border-red-200'
+          }`}>
           {saveMessage.type === 'success' ? (
             <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
           ) : (
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
           )}
           <span className="flex-1 font-medium">{saveMessage.text}</span>
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={() => setSaveMessage(null)}
             className="text-xs opacity-60 hover:opacity-100 font-bold"
           >
@@ -423,9 +418,6 @@ export const FestiveManagement: React.FC = () => {
       {/* Master Enable/Disable Toggle */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className={`p-2.5 rounded-xl ${config.enabled ? 'bg-amber-100 text-amber-900' : 'bg-gray-100 text-gray-500'}`}>
-            <Sparkles className="w-5 h-5" />
-          </div>
           <div>
             <h3 className="text-sm font-bold text-gray-900">Enable Festive Section on Homepage</h3>
             <p className="text-xs text-gray-500">
@@ -472,7 +464,7 @@ export const FestiveManagement: React.FC = () => {
           {/* Floating Luxury Demi-Couture Card Container */}
           <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-8 py-6 flex justify-end">
             <div className="w-full max-w-[280px] sm:max-w-[340px] bg-black/55 backdrop-blur-md border border-white/20 p-5 sm:p-7 text-center text-white shadow-2xl">
-              
+
               {/* Optional Seasonal Badge */}
               {config.badge && (
                 <div className="mb-2">
@@ -484,38 +476,38 @@ export const FestiveManagement: React.FC = () => {
 
               {/* Elegant Calligraphic Brand Script */}
               <div className="flex flex-col items-center justify-center mb-4">
-                <svg 
-                  className="w-40 sm:w-48 h-auto text-white/95 drop-shadow-md filter" 
-                  viewBox="0 0 300 100" 
-                  fill="none" 
+                <svg
+                  className="w-40 sm:w-48 h-auto text-white/95 drop-shadow-md filter"
+                  viewBox="0 0 300 100"
+                  fill="none"
                   xmlns="http://www.w3.org/2000/svg"
                 >
-                  <path 
-                    d="M30 45 C 50 15, 110 10, 160 30 C 190 40, 240 25, 270 15" 
-                    stroke="currentColor" 
-                    strokeWidth="1.5" 
-                    strokeLinecap="round" 
-                    opacity="0.85" 
+                  <path
+                    d="M30 45 C 50 15, 110 10, 160 30 C 190 40, 240 25, 270 15"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    opacity="0.85"
                   />
-                  <text 
-                    x="150" 
-                    y="62" 
-                    textAnchor="middle" 
-                    fontFamily="Playfair Display, Georgia, 'Great Vibes', cursive, serif" 
-                    fontSize={config.title.length > 10 ? "32" : "44"} 
-                    fontStyle="italic" 
-                    fontWeight="400" 
+                  <text
+                    x="150"
+                    y="62"
+                    textAnchor="middle"
+                    fontFamily="Playfair Display, Georgia, 'Great Vibes', cursive, serif"
+                    fontSize={config.title.length > 10 ? "32" : "44"}
+                    fontStyle="italic"
+                    fontWeight="400"
                     fill="currentColor"
                     letterSpacing="1"
                   >
                     {config.title || 'Festive'}
                   </text>
-                  <path 
-                    d="M100 72 Q 150 85 200 72" 
-                    stroke="currentColor" 
-                    strokeWidth="1" 
-                    strokeLinecap="round" 
-                    opacity="0.7" 
+                  <path
+                    d="M100 72 Q 150 85 200 72"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                    strokeLinecap="round"
+                    opacity="0.7"
                   />
                 </svg>
 
@@ -608,7 +600,7 @@ export const FestiveManagement: React.FC = () => {
               <ImageIcon className="w-4 h-4 text-neutral-700" />
               <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Banner Background Image</h2>
             </div>
-            
+
             <MediaUpload
               value={config.bannerImage}
               onChange={(url) => setConfig({ ...config, bannerImage: url })}
@@ -645,11 +637,10 @@ export const FestiveManagement: React.FC = () => {
                     key={val}
                     type="button"
                     onClick={() => setConfig({ ...config, overlayDarkness: val })}
-                    className={`py-2 text-xs font-bold rounded-lg border cursor-pointer transition-all ${
-                      config.overlayDarkness === val
-                        ? 'border-neutral-900 bg-neutral-900 text-white shadow-xs'
-                        : 'border-gray-200 text-gray-700 hover:border-gray-300 bg-white'
-                    }`}
+                    className={`py-2 text-xs font-bold rounded-lg border cursor-pointer transition-all ${config.overlayDarkness === val
+                      ? 'border-neutral-900 bg-neutral-900 text-white shadow-xs'
+                      : 'border-gray-200 text-gray-700 hover:border-gray-300 bg-white'
+                      }`}
                   >
                     {val}% Tint
                   </button>
